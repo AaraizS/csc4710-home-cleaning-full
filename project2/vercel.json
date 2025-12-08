@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "Backend/api/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "Backend/api/index.js"
+    }
+  ],
+  "env": {
+    "MONGO_URI": "@mongo_uri",
+    "HOST": "@db_host",
+    "DB_USER": "@db_user",
+    "PASSWORD": "@db_password",
+    "DATABASE": "@db_database",
+    "DB_PORT": "@db_port"
+  }
+}
