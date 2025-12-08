@@ -12,6 +12,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Normalize optional /api prefix so both /health and /api/health work
+app.use((req, res, next) => {
+  if (req.path === '/api' || req.path === '/api/') {
+    req.url = '/';
+  } else if (req.path.startsWith('/api/')) {
+    req.url = req.url.replace(/^\/api/, '');
+  }
+  next();
+});
+
 // Logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -349,6 +359,11 @@ app.use((req, res) => {
   console.log('[CHECKPOINT] Available routes should include: GET /, /health, /ready, /health/live, /health/detailed, /health/startup');
   res.status(404).json({ error: 'Not Found', path: req.path, message: 'No matching route found' });
 });
+
+if (require.main === module) {
+  const port = process.env.PORT || 5052;
+  app.listen(port, () => console.log(`[CHECKPOINT] API server listening on port ${port}`));
+}
 
 console.log('[CHECKPOINT] API Module loaded - routes registered');
 module.exports = app;
