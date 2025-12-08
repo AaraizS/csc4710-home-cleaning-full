@@ -10,20 +10,32 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Query:', req.query);
+  console.log('Body:', req.body);
+  next();
+});
+
 // Simple health checks (no DB required)
 app.get('/', (req, res) => {
+  console.log('[CHECKPOINT] GET / - Root endpoint hit');
   res.json({ message: 'Home Cleaning System Backend Running', version: '1.0.0' });
 });
 
 app.get('/health', (req, res) => {
+  console.log('[CHECKPOINT] GET /health - Health check hit');
   res.json({ status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime() });
 });
 
 app.get('/ready', (req, res) => {
+  console.log('[CHECKPOINT] GET /ready - Ready check hit');
   res.json({ ready: true, message: 'Server is operational' });
 });
 
 app.get('/health/live', (req, res) => {
+  console.log('[CHECKPOINT] GET /health/live - Live check hit');
   res.json({ alive: true, timestamp: new Date().toISOString() });
 });
 
@@ -32,24 +44,36 @@ let DbService;
 let db;
 
 async function getDbService() {
+  console.log('[CHECKPOINT] getDbService() called');
   if (!db) {
+    console.log('[CHECKPOINT] DB not initialized - initializing now');
     try {
+      console.log('[CHECKPOINT] Requiring dbService module');
       DbService = require('../dbService');
+      console.log('[CHECKPOINT] DbService module loaded');
       db = DbService.getDbServiceInstance();
+      console.log('[CHECKPOINT] DB instance created');
       if (process.env.MONGO_URI) {
+        console.log('[CHECKPOINT] MONGO_URI found - attempting connection');
         await mongoose.connect(process.env.MONGO_URI).catch(err => 
-          console.log('MongoDB Connection Warning:', err.message)
+          console.log('[CHECKPOINT] MongoDB Connection Warning:', err.message)
         );
+        console.log('[CHECKPOINT] MongoDB connected');
+      } else {
+        console.log('[CHECKPOINT] MONGO_URI not set - skipping MongoDB');
       }
     } catch (err) {
-      console.error('Failed to initialize DB service:', err.message);
+      console.error('[CHECKPOINT] Failed to initialize DB service:', err.message);
       throw err;
     }
+  } else {
+    console.log('[CHECKPOINT] DB already initialized - returning cached instance');
   }
   return db;
 }
 
 app.get('/health/detailed', async (req, res) => {
+  console.log('[CHECKPOINT] GET /health/detailed - Starting detailed health check');
   const checks = {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
@@ -58,9 +82,13 @@ app.get('/health/detailed', async (req, res) => {
   };
 
   try {
+    console.log('[CHECKPOINT] /health/detailed - Attempting getDbService()');
     const dbService = await getDbService();
+    console.log('[CHECKPOINT] /health/detailed - getDbService() success');
     checks.mongodb.connected = await dbService.isDbReady();
+    console.log('[CHECKPOINT] /health/detailed - isDbReady() returned:', checks.mongodb.connected);
   } catch (err) {
+    console.log('[CHECKPOINT] /health/detailed - Error:', err.message);
     checks.mongodb.error = err.message;
   }
 
@@ -71,14 +99,19 @@ app.get('/health/detailed', async (req, res) => {
 });
 
 app.get('/health/startup', async (req, res) => {
+  console.log('[CHECKPOINT] GET /health/startup - Starting startup check');
   try {
+    console.log('[CHECKPOINT] /health/startup - Attempting getDbService()');
     const dbService = await getDbService();
+    console.log('[CHECKPOINT] /health/startup - getDbService() success');
     const dbReady = await dbService.isDbReady();
+    console.log('[CHECKPOINT] /health/startup - isDbReady() returned:', dbReady);
     if (dbReady) {
       return res.json({ startup: 'ready', message: 'Backend is fully operational' });
     }
     return res.status(503).json({ startup: 'not-ready', message: 'Database not ready' });
   } catch (err) {
+    console.log('[CHECKPOINT] /health/startup - Error:', err.message);
     return res.status(503).json({ startup: 'error', error: err.message });
   }
 });
@@ -310,7 +343,10 @@ app.post('/t1', async (req, res) => {
 });
 
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not Found', path: req.path });
+  console.log(`[CHECKPOINT] 404 - No route matched for ${req.method} ${req.path}`);
+  console.log('[CHECKPOINT] Available routes should include: GET /, /health, /ready, /health/live, /health/detailed, /health/startup');
+  res.status(404).json({ error: 'Not Found', path: req.path, message: 'No matching route found' });
 });
 
+console.log('[CHECKPOINT] API Module loaded - routes registered');
 module.exports = app;
