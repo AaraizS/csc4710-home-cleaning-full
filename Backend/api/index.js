@@ -5,199 +5,266 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-const DbService = require('../dbService');
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// MongoDB connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('Connected to MongoDB!'))
-  .catch((err) => console.log('MongoDB Connection Error:', err));
-
-const db = DbService.getDbServiceInstance();
-
+// Simple health checks (no DB required)
 app.get('/', (req, res) => {
-  res.json({ message: 'Home Cleaning System Backend Running' });
+  res.json({ message: 'Home Cleaning System Backend Running', version: '1.0.0' });
 });
 
-// ===========================
-// LOGIN
-// ===========================
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime() });
+});
+
+app.get('/ready', (req, res) => {
+  res.json({ ready: true, message: 'Server is operational' });
+});
+
+app.get('/health/live', (req, res) => {
+  res.json({ alive: true, timestamp: new Date().toISOString() });
+});
+
+// Lazy-load DB service
+let DbService;
+let db;
+
+async function getDbService() {
+  if (!db) {
+    try {
+      DbService = require('../dbService');
+      db = DbService.getDbServiceInstance();
+      if (process.env.MONGO_URI) {
+        await mongoose.connect(process.env.MONGO_URI).catch(err => 
+          console.log('MongoDB Connection Warning:', err.message)
+        );
+      }
+    } catch (err) {
+      console.error('Failed to initialize DB service:', err.message);
+      throw err;
+    }
+  }
+  return db;
+}
+
+app.get('/health/detailed', async (req, res) => {
+  const checks = {
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    mongodb: { connected: false }
+  };
+
+  try {
+    const dbService = await getDbService();
+    checks.mongodb.connected = await dbService.isDbReady();
+  } catch (err) {
+    checks.mongodb.error = err.message;
+  }
+
+  res.json({
+    status: checks.mongodb.connected ? 'ok' : 'degraded',
+    checks
+  });
+});
+
+app.get('/health/startup', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const dbReady = await dbService.isDbReady();
+    if (dbReady) {
+      return res.json({ startup: 'ready', message: 'Backend is fully operational' });
+    }
+    return res.status(503).json({ startup: 'not-ready', message: 'Database not ready' });
+  } catch (err) {
+    return res.status(503).json({ startup: 'error', error: err.message });
+  }
+});
+
+// All other routes require DB service
 app.post('/auth/login', async (req, res) => {
-  const { username, password } = req.body;
-  const result = await db.loginUser(username, password);
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { username, password } = req.body;
+    const result = await dbService.loginUser(username, password);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// REGISTER CLIENT
-// ===========================
 app.post('/clients/register', async (req, res) => {
-  const {
-    first_name,
-    last_name,
-    address,
-    phone,
-    email,
-    cc_last4,
-    cc_token,
-    password
-  } = req.body;
-
-  const result = await db.registerClient(
-    first_name,
-    last_name,
-    address,
-    phone,
-    email,
-    cc_last4,
-    cc_token,
-    password
-  );
-
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { first_name, last_name, address, phone, email, cc_last4, cc_token, password } = req.body;
+    const result = await dbService.registerClient(first_name, last_name, address, phone, email, cc_last4, cc_token, password);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// CREATE REQUEST
-// ===========================
 app.post('/requests/new', async (req, res) => {
-  const {
-    client_id,
-    service_address,
-    cleaning_type,
-    num_rooms,
-    preferred_datetime,
-    proposed_budget,
-    notes
-  } = req.body;
-
-  const result = await db.createServiceRequest(
-    client_id,
-    service_address,
-    cleaning_type,
-    num_rooms,
-    preferred_datetime || null,
-    proposed_budget || null,
-    notes || null
-  );
-
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { client_id, service_address, cleaning_type, num_rooms, preferred_datetime, proposed_budget, notes } = req.body;
+    const result = await dbService.createServiceRequest(client_id, service_address, cleaning_type, num_rooms, preferred_datetime || null, proposed_budget || null, notes || null);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// ADD PHOTO
-// ===========================
 app.post('/requests/add-photo', async (req, res) => {
-  const { request_id, photo_url } = req.body;
-  const result = await db.addPhoto(request_id, photo_url);
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { request_id, photo_url } = req.body;
+    const result = await dbService.addPhoto(request_id, photo_url);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// CREATE QUOTE
-// ===========================
 app.post('/quotes/create', async (req, res) => {
-  const {
-    request_id,
-    price,
-    time_window_start,
-    time_window_end,
-    note
-  } = req.body;
-
-  const result = await db.createQuote(
-    request_id,
-    price,
-    time_window_start,
-    time_window_end,
-    note
-  );
-
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { request_id, price, time_window_start, time_window_end, note } = req.body;
+    const result = await dbService.createQuote(request_id, price, time_window_start, time_window_end, note);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// ACCEPT QUOTE
-// ===========================
 app.post('/quotes/accept', async (req, res) => {
-  const { quote_id } = req.body;
-  const result = await db.acceptQuote(quote_id);
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { quote_id } = req.body;
+    const result = await dbService.acceptQuote(quote_id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// COMPLETE ORDER
-// ===========================
 app.post('/orders/complete', async (req, res) => {
-  const { order_id } = req.body;
-  const result = await db.completeOrder(order_id);
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { order_id } = req.body;
+    const result = await dbService.completeOrder(order_id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// CREATE BILL
-// ===========================
 app.post('/bills/create', async (req, res) => {
-  const { order_id, amount } = req.body;
-  const result = await db.createBill(order_id, amount);
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { order_id, amount } = req.body;
+    const result = await dbService.createBill(order_id, amount);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// PAY BILL
-// ===========================
 app.post('/bills/pay', async (req, res) => {
-  const { bill_id, client_id, amount } = req.body;
-  const result = await db.payBill(bill_id, client_id, amount);
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { bill_id, client_id, amount } = req.body;
+    const result = await dbService.payBill(bill_id, client_id, amount);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// DISPUTE BILL
-// ===========================
 app.post('/bills/dispute', async (req, res) => {
-  const { bill_id, note } = req.body;
-  const result = await db.disputeBill(bill_id, note);
-  res.json(result);
+  try {
+    const dbService = await getDbService();
+    const { bill_id, note } = req.body;
+    const result = await dbService.disputeBill(bill_id, note);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-// ===========================
-// DASHBOARD
-// ===========================
 app.get('/dashboard/frequent-clients', async (req, res) => {
-  res.json(await db.frequentClients());
+  try {
+    const dbService = await getDbService();
+    res.json(await dbService.frequentClients());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/dashboard/uncommitted-clients', async (req, res) => {
-  res.json(await db.uncommittedClients());
+  try {
+    const dbService = await getDbService();
+    res.json(await dbService.uncommittedClients());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/dashboard/accepted-quotes', async (req, res) => {
-  const { year, month } = req.query;
-  res.json(await db.acceptedQuotes(year, month));
+  try {
+    const dbService = await getDbService();
+    const { year, month } = req.query;
+    res.json(await dbService.acceptedQuotes(year, month));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/dashboard/prospective-clients', async (req, res) => {
-  res.json(await db.prospectiveClients());
+  try {
+    const dbService = await getDbService();
+    res.json(await dbService.prospectiveClients());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/dashboard/largest-job', async (req, res) => {
-  res.json(await db.largestJob());
+  try {
+    const dbService = await getDbService();
+    res.json(await dbService.largestJob());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/dashboard/overdue-bills', async (req, res) => {
-  res.json(await db.overdueBills());
+  try {
+    const dbService = await getDbService();
+    res.json(await dbService.overdueBills());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/dashboard/bad-clients', async (req, res) => {
-  res.json(await db.badClients());
+  try {
+    const dbService = await getDbService();
+    res.json(await dbService.badClients());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/dashboard/good-clients', async (req, res) => {
-  res.json(await db.goodClients());
+  try {
+    const dbService = await getDbService();
+    res.json(await dbService.goodClients());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/test-db', async (req, res) => {
@@ -219,74 +286,10 @@ app.get('/test-add-user', async (req, res) => {
   }
 });
 
-// ===========================
-// HEALTH & READINESS
-// ===========================
-app.get('/health', async (req, res) => {
-  try {
-    const dbReady = await db.isDbReady();
-    res.json({ status: 'ok', uptime: process.uptime(), db: dbReady ? 'connected' : 'disconnected' });
-  } catch (err) {
-    res.status(500).json({ status: 'error', error: err.message });
-  }
-});
-
-app.get('/ready', async (req, res) => {
-  try {
-    const ready = await db.isDbReady();
-    if (ready) return res.json({ ready: true });
-    return res.status(503).json({ ready: false });
-  } catch (err) {
-    return res.status(503).json({ ready: false, error: err.message });
-  }
-});
-
-// ===========================
-// DETAILED HEALTH CHECKS
-// ===========================
-app.get('/health/detailed', async (req, res) => {
-  const checks = {
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    mongodb: { connected: false },
-    mysql: { connected: false }
-  };
-
-  try {
-    checks.mongodb.connected = await db.isDbReady();
-  } catch (err) {
-    checks.mongodb.error = err.message;
-  }
-
-  res.json({
-    status: checks.mongodb.connected ? 'ok' : 'degraded',
-    checks
-  });
-});
-
-app.get('/health/live', (req, res) => {
-  res.json({ alive: true, timestamp: new Date().toISOString() });
-});
-
-app.get('/health/startup', async (req, res) => {
-  try {
-    const dbReady = await db.isDbReady();
-    if (dbReady) {
-      return res.json({ startup: 'ready', message: 'Backend is fully operational' });
-    }
-    return res.status(503).json({ startup: 'not-ready', message: 'Database not ready' });
-  } catch (err) {
-    return res.status(503).json({ startup: 'error', error: err.message });
-  }
-});
-
-// ===========================
-// ADMIN: Enable Claude Haiku 4.5 for all clients
-// ===========================
 app.post('/admin/enable-claude-haiku', async (req, res) => {
   try {
-    const result = await db.enableClaudeHaikuForAllClients();
+    const dbService = await getDbService();
+    const result = await dbService.enableClaudeHaikuForAllClients();
     if (result && result.success) res.json({ success: true, message: 'Claude Haiku enabled for all clients' });
     else res.status(500).json({ success: false });
   } catch (err) {
@@ -294,14 +297,11 @@ app.post('/admin/enable-claude-haiku', async (req, res) => {
   }
 });
 
-// ===========================
-// Insert sample project request into MongoDB (flexible schema)
-// ===========================
 app.post('/t1', async (req, res) => {
   try {
-    const T1 = mongoose.model('t1', new mongoose.Schema({}, { strict: false }));
     const payload = req.body;
     payload.created_at = new Date();
+    const T1 = mongoose.model('t1', new mongoose.Schema({}, { strict: false }));
     const doc = await T1.create(payload);
     res.json({ success: true, inserted: doc });
   } catch (err) {
@@ -309,5 +309,8 @@ app.post('/t1', async (req, res) => {
   }
 });
 
-// Export for Vercel
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found', path: req.path });
+});
+
 module.exports = app;
