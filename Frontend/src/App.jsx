@@ -1,3 +1,4 @@
+// Minor: frontend CI trigger comment
 // Frontend Application - Home Cleaning Service Management System
 import React, { useState, useEffect } from 'react'
 import Register from './pages/Register'
