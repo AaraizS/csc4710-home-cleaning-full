@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5052'
+const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
 
 async function post(path, body){
   const res = await fetch(API_BASE + path, {
