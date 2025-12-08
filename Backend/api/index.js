@@ -355,7 +355,11 @@ app.post('/t1', async (req, res) => {
     payload.created_at = new Date();
     
     console.log('[CHECKPOINT] /t1 POST - Creating model and inserting:', JSON.stringify(payload, null, 2));
-    const T1 = mongoose.model('t1', new mongoose.Schema({}, { strict: false }));
+    // Use modelNames to check if model already exists, if not create it
+    const modelExists = mongoose.modelNames().includes('t1');
+    const T1 = modelExists 
+      ? mongoose.model('t1')
+      : mongoose.model('t1', new mongoose.Schema({}, { strict: false }));
     const doc = await T1.create(payload);
     
     console.log('[CHECKPOINT] /t1 POST - Insert successful, ID:', doc._id);
