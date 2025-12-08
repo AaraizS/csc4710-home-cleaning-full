@@ -66,13 +66,16 @@ async function getDbService() {
       db = DbService.getDbServiceInstance();
       console.log('[CHECKPOINT] DB instance created');
       if (process.env.MONGO_URI) {
-        console.log('[CHECKPOINT] MONGO_URI found - attempting connection');
-        await mongoose.connect(process.env.MONGO_URI).catch(err => 
-          console.log('[CHECKPOINT] MongoDB Connection Warning:', err.message)
-        );
-        console.log('[CHECKPOINT] MongoDB connected');
+        console.log('[CHECKPOINT] MONGO_URI found (length:', process.env.MONGO_URI.length, ') - attempting connection');
+        try {
+          await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+          console.log('[CHECKPOINT] MongoDB connected successfully');
+        } catch (err) {
+          console.log('[CHECKPOINT] MongoDB Connection Error:', err.message);
+        }
       } else {
         console.log('[CHECKPOINT] MONGO_URI not set - skipping MongoDB');
+        console.log('[CHECKPOINT] Available env vars:', Object.keys(process.env).filter(k => k.includes('MONGO') || k.includes('mongo')));
       }
     } catch (err) {
       console.error('[CHECKPOINT] Failed to initialize DB service:', err.message);
