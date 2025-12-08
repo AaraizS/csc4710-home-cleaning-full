@@ -344,12 +344,21 @@ app.post('/admin/enable-claude-haiku', async (req, res) => {
 
 app.post('/t1', async (req, res) => {
   try {
+    console.log('[CHECKPOINT] /t1 POST - Ensuring DB connection');
+    const dbService = await getDbService();
+    console.log('[CHECKPOINT] /t1 POST - DB service ready');
+    
     const payload = req.body;
     payload.created_at = new Date();
+    
+    console.log('[CHECKPOINT] /t1 POST - Creating model and inserting:', JSON.stringify(payload, null, 2));
     const T1 = mongoose.model('t1', new mongoose.Schema({}, { strict: false }));
     const doc = await T1.create(payload);
+    
+    console.log('[CHECKPOINT] /t1 POST - Insert successful, ID:', doc._id);
     res.json({ success: true, inserted: doc });
   } catch (err) {
+    console.log('[CHECKPOINT] /t1 POST - Error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
