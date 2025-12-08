@@ -242,6 +242,46 @@ app.get('/ready', async (req, res) => {
 });
 
 // ===========================
+// DETAILED HEALTH CHECKS
+// ===========================
+app.get('/health/detailed', async (req, res) => {
+  const checks = {
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    mongodb: { connected: false },
+    mysql: { connected: false }
+  };
+
+  try {
+    checks.mongodb.connected = await db.isDbReady();
+  } catch (err) {
+    checks.mongodb.error = err.message;
+  }
+
+  res.json({
+    status: checks.mongodb.connected ? 'ok' : 'degraded',
+    checks
+  });
+});
+
+app.get('/health/live', (req, res) => {
+  res.json({ alive: true, timestamp: new Date().toISOString() });
+});
+
+app.get('/health/startup', async (req, res) => {
+  try {
+    const dbReady = await db.isDbReady();
+    if (dbReady) {
+      return res.json({ startup: 'ready', message: 'Backend is fully operational' });
+    }
+    return res.status(503).json({ startup: 'not-ready', message: 'Database not ready' });
+  } catch (err) {
+    return res.status(503).json({ startup: 'error', error: err.message });
+  }
+});
+
+// ===========================
 // ADMIN: Enable Claude Haiku 4.5 for all clients
 // ===========================
 app.post('/admin/enable-claude-haiku', async (req, res) => {
