@@ -239,6 +239,7 @@ export default function AdminDashboard(){
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Client Name</th>
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Service Type</th>
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Rooms</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Budget</th>
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Address</th>
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Preferred Date</th>
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Notes</th>
@@ -252,6 +253,7 @@ export default function AdminDashboard(){
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.client_name || 'Unknown'}</td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.cleaning_type}</td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.num_rooms}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>${req.proposed_budget || 'N/A'}</td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.service_address}</td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.preferred_datetime ? new Date(req.preferred_datetime).toLocaleDateString() : 'N/A'}</td>
                       <td style={{border: '1px solid #ddd', padding: '8px', fontSize: '12px'}}>{req.notes ? req.notes.substring(0, 30) + '...' : '-'}</td>
