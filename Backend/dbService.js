@@ -893,13 +893,13 @@ class DbService {
       // 6. Overdue bills - unpaid older than 1 week
       const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       analytics.overdue_bills = await Bill.find({
-        status: 'unpaid',
+        status: 'UNPAID',
         due_date: { $lt: oneWeekAgo }
       }).lean();
 
       // 7. Bad clients - never paid overdue bills
       const billsByClient = {};
-      const unpaidBills = await Bill.find({ status: 'unpaid', due_date: { $lt: oneWeekAgo } }).lean();
+      const unpaidBills = await Bill.find({ status: 'UNPAID', due_date: { $lt: oneWeekAgo } }).lean();
       for (const bill of unpaidBills) {
         const order = await ServiceOrder.findById(bill.order_id).lean();
         if (order) {
@@ -920,7 +920,7 @@ class DbService {
       }
 
       // 8. Good clients - paid within 24 hours
-      const onTimeBills = await Bill.find({ status: 'paid' }).lean();
+      const onTimeBills = await Bill.find({ status: 'PAID' }).lean();
       const goodClientMap = {};
       for (const bill of onTimeBills) {
         if (bill.paid_at && bill.created_at) {
