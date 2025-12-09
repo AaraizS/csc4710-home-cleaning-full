@@ -65,6 +65,9 @@ export default function Login({ onLogin }) {
       <p style={{ marginTop: '20px' }}>
         Don't have an account? <a href="#register">Register here</a>
       </p>
+      <p style={{ marginTop: '8px' }}>
+        Need help? Read the <a href="#manual">User Manual</a>.
+      </p>
     </section>
   )
 }

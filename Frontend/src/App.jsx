@@ -8,6 +8,7 @@ import Quotes from './pages/Quotes'
 import Bills from './pages/Bills'
 import MyRequests from './pages/MyRequests'
 import AdminDashboard from './pages/AdminDashboard'
+import UserManual from './pages/UserManual'
 
 const PAGES = {
   home: 'home',
@@ -17,7 +18,8 @@ const PAGES = {
   quotes: 'quotes',
   bills: 'bills',
   myrequests: 'myrequests',
-  dashboard: 'dashboard'
+  dashboard: 'dashboard',
+  manual: 'manual'
 }
 
 export default function App(){
@@ -79,10 +81,16 @@ export default function App(){
       <div className="app">
         <header>
           <h1>Anna Johnson - Home Cleaning</h1>
+          <nav>
+            <a href="#login">Login</a>
+            <a href="#register" style={{ marginLeft: '12px' }}>Register</a>
+            <a href="#manual" style={{ marginLeft: '12px' }}>User Manual</a>
+          </nav>
         </header>
         <main>
-          {page === PAGES.register && <Register />}
-          {(page === PAGES.home || page === PAGES.login) && <Login onLogin={handleLogin} />}
+            {page === PAGES.register && <Register />}
+            {(page === PAGES.home || page === PAGES.login) && <Login onLogin={handleLogin} />}
+            {page === PAGES.manual && <UserManual />}
         </main>
       </div>
     )
@@ -116,6 +124,7 @@ export default function App(){
         {!isAdmin && page === PAGES.quotes && <Quotes clientId={user.client_id} />}
         {!isAdmin && page === PAGES.bills && <Bills clientId={user.client_id} />}
         {isAdmin && page === PAGES.dashboard && <AdminDashboard />}
+        {page === PAGES.manual && <UserManual />}
       </main>
 
       <footer>
