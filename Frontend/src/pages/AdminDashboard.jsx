@@ -517,95 +517,121 @@ export default function AdminDashboard(){
           <div>
             <h3>Analytics & Reports</h3>
             
-            {analytics.frequent_clients && analytics.frequent_clients.length > 0 && (
-              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
-                <h4>Frequent Clients (Most Service Orders)</h4>
+            {/* 1. Frequent Clients */}
+            <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+              <h4>1. Frequent Clients (Most Service Orders)</h4>
+              {analytics.frequent_clients && analytics.frequent_clients.length > 0 ? (
                 <ol>
                   {analytics.frequent_clients.map((client, i) => (
                     <li key={i}>{client.name} - {client.order_count} orders</li>
                   ))}
                 </ol>
-              </div>
-            )}
+              ) : (
+                <p style={{color: '#999'}}>N/A</p>
+              )}
+            </div>
 
-            {analytics.uncommitted_clients && analytics.uncommitted_clients.length > 0 && (
-              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
-                <h4>Uncommitted Clients (3+ Requests, No Orders)</h4>
+            {/* 2. Uncommitted Clients */}
+            <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+              <h4>2. Uncommitted Clients (3+ Requests, No Orders)</h4>
+              {analytics.uncommitted_clients && analytics.uncommitted_clients.length > 0 ? (
                 <ol>
                   {analytics.uncommitted_clients.map((client, i) => (
                     <li key={i}>{client.name} - {client.request_count} requests, 0 orders</li>
                   ))}
                 </ol>
-              </div>
-            )}
+              ) : (
+                <p style={{color: '#999'}}>N/A</p>
+              )}
+            </div>
 
-            {analytics.monthly_quotes && analytics.monthly_quotes.length > 0 && (
-              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
-                <h4>This Month's Accepted Quotes</h4>
-                <p>Count: {analytics.monthly_quotes.length}</p>
-                <ul>
-                  {analytics.monthly_quotes.slice(0, 5).map((quote, i) => (
-                    <li key={i}>Quote ID: {quote._id?.toString().slice(-6)} - ${quote.price}</li>
-                  ))}
-                  {analytics.monthly_quotes.length > 5 && <li>... and {analytics.monthly_quotes.length - 5} more</li>}
-                </ul>
-              </div>
-            )}
+            {/* 3. This Month's Accepted Quotes */}
+            <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+              <h4>3. This Month's Accepted Quotes</h4>
+              {analytics.monthly_quotes && analytics.monthly_quotes.length > 0 ? (
+                <>
+                  <p>Count: {analytics.monthly_quotes.length}</p>
+                  <ul>
+                    {analytics.monthly_quotes.slice(0, 5).map((quote, i) => (
+                      <li key={i}>Quote ID: {quote._id?.toString().slice(-6)} - ${quote.price}</li>
+                    ))}
+                    {analytics.monthly_quotes.length > 5 && <li>... and {analytics.monthly_quotes.length - 5} more</li>}
+                  </ul>
+                </>
+              ) : (
+                <p style={{color: '#999'}}>N/A</p>
+              )}
+            </div>
 
-            {analytics.prospective_clients && analytics.prospective_clients.length > 0 && (
-              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
-                <h4>Prospective Clients (Registered, No Requests)</h4>
+            {/* 4. Prospective Clients */}
+            <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+              <h4>4. Prospective Clients (Registered, No Requests)</h4>
+              {analytics.prospective_clients && analytics.prospective_clients.length > 0 ? (
                 <ol>
                   {analytics.prospective_clients.map((client, i) => (
                     <li key={i}>{client.name} - Registered {new Date(client.created_at).toLocaleDateString()}</li>
                   ))}
                 </ol>
-              </div>
-            )}
+              ) : (
+                <p style={{color: '#999'}}>N/A</p>
+              )}
+            </div>
 
-            {analytics.largest_jobs && analytics.largest_jobs.length > 0 && (
-              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
-                <h4>Largest Jobs (Most Rooms Completed)</h4>
+            {/* 5. Largest Jobs */}
+            <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+              <h4>5. Largest Jobs (Most Rooms Completed)</h4>
+              {analytics.largest_jobs && analytics.largest_jobs.length > 0 ? (
                 <ol>
                   {analytics.largest_jobs.map((job, i) => (
                     <li key={i}>Request ID: {job._id?.toString().slice(-6)} - {job.num_rooms} rooms</li>
                   ))}
                 </ol>
-              </div>
-            )}
+              ) : (
+                <p style={{color: '#999'}}>N/A</p>
+              )}
+            </div>
 
-            {analytics.overdue_bills && analytics.overdue_bills.length > 0 && (
-              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#f8d7da', borderRadius: '4px', border: '1px solid #f5c6cb'}}>
-                <h4>Overdue Bills (Older than 1 Week)</h4>
+            {/* 6. Overdue Bills */}
+            <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#f8d7da', borderRadius: '4px', border: '1px solid #f5c6cb'}}>
+              <h4>6. Overdue Bills (Older than 1 Week)</h4>
+              {analytics.overdue_bills && analytics.overdue_bills.length > 0 ? (
                 <ol>
                   {analytics.overdue_bills.map((bill, i) => (
                     <li key={i}>Bill ID: {bill._id?.toString().slice(-6)} - ${bill.amount} (Due: {new Date(bill.due_date).toLocaleDateString()})</li>
                   ))}
                 </ol>
-              </div>
-            )}
+              ) : (
+                <p style={{color: '#721c24'}}>N/A</p>
+              )}
+            </div>
 
-            {analytics.bad_clients && analytics.bad_clients.length > 0 && (
-              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#f8d7da', borderRadius: '4px', border: '1px solid #f5c6cb'}}>
-                <h4>Bad Clients (Never Paid Overdue Bills)</h4>
+            {/* 7. Bad Clients */}
+            <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#f8d7da', borderRadius: '4px', border: '1px solid #f5c6cb'}}>
+              <h4>7. Bad Clients (Never Paid Overdue Bills)</h4>
+              {analytics.bad_clients && analytics.bad_clients.length > 0 ? (
                 <ol>
                   {analytics.bad_clients.map((client, i) => (
                     <li key={i}>{client.name} - {client.overdue_count} unpaid bills</li>
                   ))}
                 </ol>
-              </div>
-            )}
+              ) : (
+                <p style={{color: '#721c24'}}>N/A</p>
+              )}
+            </div>
 
-            {analytics.good_clients && analytics.good_clients.length > 0 && (
-              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#d4edda', borderRadius: '4px', border: '1px solid #c3e6cb'}}>
-                <h4>Good Clients (Paid Within 24 Hours)</h4>
+            {/* 8. Good Clients */}
+            <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#d4edda', borderRadius: '4px', border: '1px solid #c3e6cb'}}>
+              <h4>8. Good Clients (Paid Within 24 Hours)</h4>
+              {analytics.good_clients && analytics.good_clients.length > 0 ? (
                 <ol>
                   {analytics.good_clients.map((client, i) => (
                     <li key={i}>{client.name} - {client.on_time_count} on-time payments</li>
                   ))}
                 </ol>
-              </div>
-            )}
+              ) : (
+                <p style={{color: '#155724'}}>N/A</p>
+              )}
+            </div>
           </div>
         )}
       </div>
