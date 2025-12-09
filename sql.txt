@@ -1,0 +1,258 @@
+-- sql.txt
+-- List of SQL statements for the Home Cleaning Service Management System
+-- Includes database/table creation statements and all main queries/analytics.
+-- Adjust table/column names to match your actual MySQL schema (e.g., pluralization, snake_case vs camelCase).
+
+-- ========================================
+-- DATABASE & TABLE CREATION
+-- ========================================
+
+-- Create the database
+CREATE DATABASE IF NOT EXISTS home_cleaning_service;
+USE home_cleaning_service;
+
+-- Create clients table
+CREATE TABLE IF NOT EXISTS clients (
+  client_id INT PRIMARY KEY AUTO_INCREMENT,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  address VARCHAR(255),
+  phone VARCHAR(20),
+  email VARCHAR(100) UNIQUE NOT NULL,
+  cc_last4 CHAR(4),
+  cc_token VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create user_accounts table
+CREATE TABLE IF NOT EXISTS user_accounts (
+  user_id INT PRIMARY KEY AUTO_INCREMENT,
+  username VARCHAR(100) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  role ENUM('CLIENT', 'ADMIN') DEFAULT 'CLIENT',
+  client_id INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (client_id) REFERENCES clients(client_id)
+);
+
+-- Create service_requests table
+CREATE TABLE IF NOT EXISTS service_requests (
+  request_id INT PRIMARY KEY AUTO_INCREMENT,
+  client_id INT NOT NULL,
+  service_address VARCHAR(255),
+  cleaning_type VARCHAR(100),
+  num_rooms INT,
+  preferred_datetime DATETIME,
+  proposed_budget DECIMAL(10, 2),
+  notes TEXT,
+  photos JSON,
+  status ENUM('pending', 'quote_received', 'rejected', 'completed') DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (client_id) REFERENCES clients(client_id)
+);
+
+-- Create quotes table
+CREATE TABLE IF NOT EXISTS quotes (
+  quote_id INT PRIMARY KEY AUTO_INCREMENT,
+  request_id INT NOT NULL,
+  client_id INT NOT NULL,
+  price DECIMAL(10, 2),
+  time_window_start DATETIME,
+  time_window_end DATETIME,
+  note TEXT,
+  status ENUM('PENDING', 'ACCEPTED', 'REJECTED', 'RENEGOTIATING', 'RENEGOTIATED') DEFAULT 'PENDING',
+  client_note TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (request_id) REFERENCES service_requests(request_id),
+  FOREIGN KEY (client_id) REFERENCES clients(client_id)
+);
+
+-- Create service_orders table
+CREATE TABLE IF NOT EXISTS service_orders (
+  order_id INT PRIMARY KEY AUTO_INCREMENT,
+  request_id INT NOT NULL,
+  client_id INT NOT NULL,
+  status ENUM('ACCEPTED', 'COMPLETED') DEFAULT 'ACCEPTED',
+  completed_at DATETIME,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (request_id) REFERENCES service_requests(request_id),
+  FOREIGN KEY (client_id) REFERENCES clients(client_id)
+);
+
+-- Create bills table
+CREATE TABLE IF NOT EXISTS bills (
+  bill_id INT PRIMARY KEY AUTO_INCREMENT,
+  order_id INT NOT NULL,
+  amount DECIMAL(10, 2),
+  status ENUM('UNPAID', 'PAID', 'DISPUTED') DEFAULT 'UNPAID',
+  dispute_note TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  paid_at DATETIME,
+  due_date DATETIME,
+  FOREIGN KEY (order_id) REFERENCES service_orders(order_id)
+);
+
+-- ========================================
+-- ANALYTICS & QUERY STATEMENTS
+-- ========================================
+
+-- 1. Frequent clients: top 5 clients by number of completed orders
+SELECT c.client_id,
+       c.first_name,
+       c.last_name,
+       COUNT(o.order_id) AS order_count
+FROM service_orders o
+JOIN clients c ON o.client_id = c.client_id
+WHERE o.status = 'COMPLETED'
+GROUP BY c.client_id, c.first_name, c.last_name
+ORDER BY order_count DESC
+LIMIT 5;
+
+-- 2. Uncommitted clients: clients with 3+ requests and 0 orders
+SELECT c.client_id,
+       c.first_name,
+       c.last_name,
+       COUNT(r.request_id) AS request_count
+FROM clients c
+LEFT JOIN service_requests r ON r.client_id = c.client_id
+LEFT JOIN service_orders o ON o.client_id = c.client_id
+GROUP BY c.client_id, c.first_name, c.last_name
+HAVING COUNT(r.request_id) >= 3
+   AND COUNT(o.order_id) = 0;
+
+-- 3. This month's accepted quotes
+SELECT q.*
+FROM quotes q
+WHERE q.status = 'ACCEPTED'
+  AND q.created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01');
+
+-- 4. Prospective clients: registered clients with no service requests
+SELECT c.client_id,
+       c.first_name,
+       c.last_name,
+       c.created_at
+FROM clients c
+LEFT JOIN service_requests r ON r.client_id = c.client_id
+GROUP BY c.client_id, c.first_name, c.last_name, c.created_at
+HAVING COUNT(r.request_id) = 0;
+
+-- 5. Largest jobs: requests with the most rooms among completed orders
+SELECT r.request_id,
+       r.client_id,
+       r.service_address,
+       r.num_rooms
+FROM service_requests r
+JOIN service_orders o ON o.request_id = r.request_id
+WHERE o.status = 'COMPLETED'
+ORDER BY r.num_rooms DESC
+LIMIT 5;
+
+-- 6. Overdue bills: unpaid bills older than 1 week
+SELECT b.*
+FROM bills b
+WHERE b.status = 'UNPAID'
+  AND b.due_date < DATE_SUB(NOW(), INTERVAL 7 DAY);
+
+-- 7. Bad clients: clients with overdue unpaid bills
+SELECT c.client_id,
+       c.first_name,
+       c.last_name,
+       COUNT(b.bill_id) AS overdue_count
+FROM bills b
+JOIN service_orders o ON b.order_id = o.order_id
+JOIN clients c ON o.client_id = c.client_id
+WHERE b.status = 'UNPAID'
+  AND b.due_date < DATE_SUB(NOW(), INTERVAL 7 DAY)
+GROUP BY c.client_id, c.first_name, c.last_name
+HAVING overdue_count > 0;
+
+-- 8. Good clients: clients who paid within 24 hours of bill creation
+SELECT c.client_id,
+       c.first_name,
+       c.last_name,
+       COUNT(b.bill_id) AS on_time_count
+FROM bills b
+JOIN service_orders o ON b.order_id = o.order_id
+JOIN clients c ON o.client_id = c.client_id
+WHERE b.status = 'PAID'
+  AND TIMESTAMPDIFF(HOUR, b.created_at, b.paid_at) <= 24
+GROUP BY c.client_id, c.first_name, c.last_name;
+
+-- 9. List of all service requests for a given client (by client_id)
+SELECT r.*
+FROM service_requests r
+WHERE r.client_id = ?
+ORDER BY r.created_at DESC;
+
+-- 10. List of quotes for a given client (by client_id)
+SELECT q.*
+FROM quotes q
+WHERE q.client_id = ?
+ORDER BY q.created_at DESC;
+
+-- 11. List of bills for a given client (via orders)
+SELECT b.*
+FROM bills b
+JOIN service_orders o ON b.order_id = o.order_id
+WHERE o.client_id = ?
+ORDER BY b.created_at DESC;
+
+-- 12. Insert a new service request
+INSERT INTO service_requests
+  (client_id, service_address, cleaning_type, num_rooms,
+   preferred_datetime, proposed_budget, notes, status, created_at)
+VALUES
+  (?, ?, ?, ?, ?, ?, ?, 'pending', NOW());
+
+-- 13. Insert a new quote for a request
+INSERT INTO quotes
+  (request_id, client_id, price, time_window_start, time_window_end,
+   note, status, created_at, updated_at)
+VALUES
+  (?, ?, ?, ?, ?, ?, 'PENDING', NOW(), NOW());
+
+-- 14. Mark a quote as accepted
+UPDATE quotes
+SET status = 'ACCEPTED',
+    updated_at = NOW()
+WHERE quote_id = ?;
+
+-- 15. Create a service order when a quote is accepted
+INSERT INTO service_orders
+  (request_id, client_id, status, created_at)
+VALUES
+  (?, ?, 'ACCEPTED', NOW());
+
+-- 16. Mark an order as completed
+UPDATE service_orders
+SET status = 'COMPLETED',
+    completed_at = NOW()
+WHERE order_id = ?;
+
+-- 17. Create a bill for a completed order
+INSERT INTO bills
+  (order_id, amount, status, created_at, due_date)
+VALUES
+  (?, ?, 'UNPAID', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY));
+
+-- 18. Pay a bill
+UPDATE bills
+SET status = 'PAID',
+    paid_at = NOW()
+WHERE bill_id = ?;
+
+-- 19. Dispute a bill
+UPDATE bills
+SET status = 'DISPUTED',
+    dispute_note = ?
+WHERE bill_id = ?;
+
+-- 20. Basic login lookup (example; use hashed passwords in production)
+SELECT user_id,
+       username,
+       role,
+       client_id,
+       password
+FROM user_accounts
+WHERE username = ?;
