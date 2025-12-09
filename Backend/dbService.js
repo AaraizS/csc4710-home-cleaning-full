@@ -76,7 +76,8 @@ const BillSchema = new mongoose.Schema({
   status: { type: String, enum: ['UNPAID', 'PAID', 'DISPUTED'], default: 'UNPAID' },
   dispute_note: String,
   created_at: { type: Date, default: Date.now },
-  paid_at: Date
+  paid_at: Date,
+  due_date: { type: Date, default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }
 });
 
 class DbService {
@@ -815,18 +816,21 @@ class DbService {
       const Bill = mongoose.model('Bill', BillSchema, 'bills');
       const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
       
+      // Calculate due date as 7 days from now
+      const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      
       const bill = await Bill.create({
         order_id: new mongoose.Types.ObjectId(orderId),
         amount,
         note,
         status: 'UNPAID',
-        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+        due_date: dueDate
       });
       
       // Mark the order as COMPLETED
       await ServiceOrder.findByIdAndUpdate(orderId, { status: 'COMPLETED', completed_at: new Date() });
       
-      console.log('[CHECKPOINT] Bill created:', bill._id);
+      console.log('[CHECKPOINT] Bill created:', bill._id, 'Due Date:', dueDate);
       return { success: true, bill_id: bill._id };
     } catch (err) {
       console.log('[CHECKPOINT] createBill error:', err.message);
