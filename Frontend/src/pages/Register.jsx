@@ -20,6 +20,7 @@ export default function Register(){
   return (
     <section>
       <h2>Register</h2>
+      <button onClick={() => window.location.hash = '#login'} style={{ marginBottom: '15px', padding: '8px 16px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>← Back to Login</button>
       <form onSubmit={onSubmit}>
         <label>First name: <input name="first_name" required /></label><br />
         <label>Last name: <input name="last_name" required /></label><br />

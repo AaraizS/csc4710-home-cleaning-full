@@ -23,6 +23,7 @@ export default function Quotes(){
   return (
     <section>
       <h2>Manage Quotes</h2>
+      <button onClick={() => window.location.hash = '#home'} style={{ marginBottom: '15px', padding: '8px 16px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>← Back to Home</button>
       <form onSubmit={onAccept} style={{maxWidth:'500px'}}>
         <label>Quote ID: <input value={quoteId} onChange={(e) => setQuoteId(e.target.value)} required /></label><br />
         
