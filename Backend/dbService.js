@@ -899,6 +899,7 @@ class DbService {
       }
 
       // 5. Largest jobs - most rooms completed
+      const completedOrders = await ServiceOrder.find({ status: 'COMPLETED' }).lean();
       const completedOrderIds = completedOrders.map(o => o.request_id);
       analytics.largest_jobs = await ServiceRequest.find({
         _id: { $in: completedOrderIds }
