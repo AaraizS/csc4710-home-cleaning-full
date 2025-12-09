@@ -370,6 +370,48 @@ app.post('/t1', async (req, res) => {
   }
 });
 
+// SEED ENDPOINT: Create admin account
+app.post('/seed/create-admin', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const { email, password, name } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+
+    const Client = mongoose.model('Client', require('../dbService').ClientSchema, 'clients');
+    const UserAccount = mongoose.model('UserAccount', require('../dbService').UserAccountSchema, 'user_accounts');
+
+    // Create client record for Anna
+    const client = await Client.create({
+      first_name: name?.split(' ')[0] || 'Anna',
+      last_name: name?.split(' ')[1] || 'Johnson',
+      email: email,
+      phone: '',
+      address: 'Admin',
+      cc_last4: '0000'
+    });
+
+    // Create user account with ADMIN role
+    const userAccount = await UserAccount.create({
+      username: email,
+      password: password,
+      client_id: client._id,
+      role: 'ADMIN'
+    });
+
+    res.json({
+      success: true,
+      message: 'Admin account created',
+      client_id: client._id,
+      user_account_id: userAccount._id
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.use((req, res) => {
   console.log(`[CHECKPOINT] 404 - No route matched for ${req.method} ${req.path}`);
   console.log('[CHECKPOINT] Available routes should include: GET /, /health, /ready, /health/live, /health/detailed, /health/startup');

@@ -506,4 +506,11 @@ class DbService {
   }
 }
 
+DbService.ClientSchema = ClientSchema;
+DbService.UserAccountSchema = UserAccountSchema;
+DbService.ServiceRequestSchema = ServiceRequestSchema;
+DbService.QuoteSchema = QuoteSchema;
+DbService.ServiceOrderSchema = ServiceOrderSchema;
+DbService.BillSchema = BillSchema;
+
 module.exports = DbService;
