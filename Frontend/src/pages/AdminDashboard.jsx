@@ -552,10 +552,9 @@ export default function AdminDashboard(){
                 <>
                   <p>Count: {analytics.monthly_quotes.length}</p>
                   <ul>
-                    {analytics.monthly_quotes.slice(0, 5).map((quote, i) => (
+                    {analytics.monthly_quotes.map((quote, i) => (
                       <li key={i}>Quote ID: {quote._id?.toString().slice(-6)} - ${quote.price}</li>
                     ))}
-                    {analytics.monthly_quotes.length > 5 && <li>... and {analytics.monthly_quotes.length - 5} more</li>}
                   </ul>
                 </>
               ) : (

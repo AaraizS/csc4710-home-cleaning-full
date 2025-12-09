@@ -1,4 +1,5 @@
 # Home Cleaning Service Management System - Video Demo Script
+
 ## 20-30 Minute Presentation
 
 ---
@@ -13,10 +14,12 @@
 "Hello, this is [Name]. Together with my partner [Partner Name], we're presenting the Home Cleaning Service Management System, a comprehensive full-stack web application built for managing cleaning service requests, quotes, orders, bills, and business analytics.
 
 This system serves two main user roles:
+
 - **Clients** who can submit cleaning service requests, receive and negotiate quotes, and manage their bills
 - **Admin (Anna Johnson)** who can manage all client requests, create quotes, track orders, generate bills, and analyze business metrics
 
 The system is built with:
+
 - **React** frontend with modern UI
 - **Node.js/Express** backend API
 - **MongoDB** cloud database
@@ -62,6 +65,7 @@ The workflow is: Client submits request → Admin creates quote → Client accep
 **[Navigate to Registration page and show form]**
 
 "Here's the registration form. Let me fill it with client details:
+
 - Name: John Smith
 - Email: john.smith@email.com
 - Address: 456 Oak Street
@@ -84,6 +88,7 @@ Great! The client 'john.smith' has been registered. Now let me log in as this cl
 **[Navigate to Request page, show form]**
 
 "Here's what a service request looks like:
+
 - Service Address: 456 Oak Street, Suite 3
 - Cleaning Type: Deep Cleaning
 - Number of Rooms: 3
@@ -105,6 +110,7 @@ Perfect! The request has been created with status 'PENDING'. Now let me show wha
 **[Navigate to Admin Dashboard → Requests section]**
 
 "Here's John Smith's request that we just created:
+
 - Service Address: 456 Oak Street, Suite 3
 - Cleaning Type: Deep Cleaning
 - 3 Rooms
@@ -118,6 +124,7 @@ As the admin, I can now create a quote for this request. Let me click to create 
 **[Click to create quote]**
 
 "Here's the quote form:
+
 - Price: $280 (slightly lower than proposed budget)
 - Time Window: Tomorrow 10:00 AM to 12:00 PM (2-hour window)
 - Note: 'We'll use eco-friendly products. 2 cleaners for faster service'
@@ -136,6 +143,7 @@ The quote has been created with status 'PENDING'. Now let me go back to the clie
 **[Navigate to Quotes]**
 
 "Great! Here's the quote Anna created:
+
 - Price: $280
 - Time Window: Tomorrow 10:00 AM - 12:00 PM
 - Note: 'We'll use eco-friendly products. 2 cleaners for faster service'
@@ -146,6 +154,7 @@ I'm happy with this quote, so let me accept it by clicking the Accept button."
 **[Click Accept]**
 
 "Perfect! The quote status has changed from PENDING to ACCEPTED. Behind the scenes, this action:
+
 1. Updates the quote status to ACCEPTED
 2. Creates a SERVICE_ORDER with status ACCEPTED
 3. Updates the original request status to quote_received
@@ -171,6 +180,7 @@ The job is now confirmed and ready for the admin to complete."
 **[Navigate to Admin Dashboard → Orders]**
 
 "Here's John's order that was created when he accepted the quote:
+
 - Request ID: from John's deep cleaning request
 - Status: ACCEPTED
 - Amount quoted: $280
@@ -196,6 +206,7 @@ Excellent! The order status has changed from ACCEPTED to COMPLETED. The complete
 **[Click Create Bill]**
 
 "The bill creation form shows:
+
 - Order ID: the completed order
 - Amount: $280 (from the quote)
 - Status: UNPAID (default)
@@ -203,7 +214,7 @@ Excellent! The order status has changed from ACCEPTED to COMPLETED. The complete
 
 Let me create this bill."
 
-**[PAUSE - Create bill]
+\*\*[PAUSE - Create bill]
 [RESUME RECORDING]
 
 Perfect! A new bill has been created with status UNPAID. The amount is $280, and the due date is 7 days from today. Now let me show how the client sees this bill."
@@ -217,6 +228,7 @@ Perfect! A new bill has been created with status UNPAID. The amount is $280, and
 **[Navigate to Bills]**
 
 "Here's the bill Anna created:
+
 - Bill ID: [shows ID]
 - Amount: $280
 - Status: UNPAID
@@ -249,6 +261,7 @@ Let me now show you what happens if a client disputes a bill. Let me create anot
 **[Navigate to submit new Request]**
 
 "Let me submit another request:
+
 - Service Address: 456 Oak Street, Suite 4
 - Cleaning Type: Regular Cleaning
 - Number of Rooms: 2
@@ -274,6 +287,7 @@ Request submitted. Now let me switch to admin to create a quote with a higher pr
 **[Create Quote]**
 
 "I'll quote $200, which is above the proposed budget of $150. This will test if John wants to renegotiate.
+
 - Price: $200
 - Time Window: Next week 2 PM - 4 PM
 - Note: 'Professional team with eco-friendly supplies'
@@ -292,6 +306,7 @@ Quote created at $200. Now let's see how the client responds."
 **[Click Renegotiate/Counter-offer button]**
 
 "I'll submit a counter-offer:
+
 - My proposed price: $180
 - Message: 'Can you do $180? This is for recurring weekly service, so there might be future jobs.'
 
@@ -309,10 +324,12 @@ My counter-offer has been submitted. The quote status is now RENEGOTIATING. Let 
 **[Navigate to renegotiating quote]**
 
 "Here's the renegotiation request from John:
+
 - His counter-offer: $180
 - His message: 'Can you do $180? This is for recurring weekly service, so there might be future jobs.'
 
 Let me create a new quote at his requested price.
+
 - Price: $180
 - Same time window
 - Note: 'Agreed! Special rate for recurring weekly service.'
@@ -389,35 +406,43 @@ The bill status has changed from UNPAID to DISPUTED, and my note is recorded."
 "The analytics provide several key business insights:
 
 **1. Frequent Clients** (Top 5 clients by completed orders)
+
 - Lists clients who have completed the most orders
 - Helps identify loyal customers
 - Current result shows our activity so far
 
 **2. Uncommitted Clients** (3+ requests, 0 orders)
+
 - Clients who've submitted multiple requests but haven't placed any orders
 - This might indicate problems with quoting or pricing
 
 **3. This Month's Accepted Quotes**
+
 - All quotes that were accepted in the current month
 - Tracks confirmed work pipeline
 
 **4. Prospective Clients** (Registered but no requests)
+
 - New clients who signed up but haven't submitted any service requests
 - Good for follow-up marketing
 
 **5. Largest Jobs** (By number of rooms)
+
 - Shows the biggest cleaning projects among completed orders
 - Useful for planning resource allocation
 
 **6. Overdue Bills** (Unpaid, >1 week old)
+
 - Bills that haven't been paid and are past due date
 - Helps with accounts receivable management
 
 **7. Bad Clients** (Overdue unpaid bills)
+
 - Clients with multiple unpaid overdue bills
 - Indicates potential payment issues
 
 **8. Good Clients** (Paid within 24 hours)
+
 - Reliable clients who pay promptly
 - Recognizes best customers for relationship management
 
@@ -472,6 +497,7 @@ The system rejects invalid credentials with: 'Invalid username or password.' Thi
 **[Navigate to any attempted unauthorized access]**
 
 "The system ensures that:
+
 - Clients only see their own service requests
 - Clients only see their own quotes and bills
 - Only admin can view all requests and analytics
@@ -482,6 +508,7 @@ This prevents information leakage and unauthorized access."
 **Error Case 4: Invalid State Transitions**
 
 "The system also prevents invalid workflow transitions. For example:
+
 - You can't accept a quote that's already accepted
 - You can't mark an order complete twice
 - You can't create a bill for an incomplete order
@@ -627,6 +654,7 @@ Let me show how this updates when a bill is paid. Let me create another bill and
 "To summarize, this Home Cleaning Service Management System demonstrates:
 
 **Core Features:**
+
 - Complete user authentication with JWT tokens
 - Role-based access control (CLIENT vs ADMIN)
 - Full service request workflow from submission to completion
@@ -636,6 +664,7 @@ Let me show how this updates when a bill is paid. Let me create another bill and
 - Comprehensive business analytics
 
 **Database Features:**
+
 - 6 interconnected entities with proper relationships
 - Referential integrity through foreign keys
 - Status enum fields to manage workflow states
@@ -643,6 +672,7 @@ Let me show how this updates when a bill is paid. Let me create another bill and
 - Support for complex business logic queries
 
 **API & Architecture:**
+
 - RESTful API endpoints for all operations
 - Secure JWT-based authentication
 - Mongoose/MongoDB for flexible data persistence
@@ -650,6 +680,7 @@ Let me show how this updates when a bill is paid. Let me create another bill and
 - Proper separation of concerns (controllers, services, views)
 
 **Error Handling:**
+
 - Input validation on all forms
 - Database constraint enforcement
 - Proper error messages for user guidance
@@ -665,17 +696,17 @@ Thank you for watching this demonstration of the Home Cleaning Service Managemen
 
 ## TIMING BREAKDOWN (Total: 25-30 minutes)
 
-| Section | Duration | Cumulative |
-|---------|----------|-----------|
-| 1. Introduction | 2-3 min | 2-3 min |
-| 2. Database Overview | 2 min | 4-5 min |
-| 3. Client Workflow | 6-7 min | 10-12 min |
-| 4. Order & Billing | 6-7 min | 16-19 min |
-| 5. Quote Renegotiation | 4-5 min | 20-24 min |
-| 6. Disputes & Analytics | 5-6 min | 25-30 min |
-| 7. Error Handling | 3-4 min | 28-34 min |
-| 8. SQL Queries | 3-4 min | 31-38 min |
-| 9. Summary | 1-2 min | 32-40 min |
+| Section                 | Duration | Cumulative |
+| ----------------------- | -------- | ---------- |
+| 1. Introduction         | 2-3 min  | 2-3 min    |
+| 2. Database Overview    | 2 min    | 4-5 min    |
+| 3. Client Workflow      | 6-7 min  | 10-12 min  |
+| 4. Order & Billing      | 6-7 min  | 16-19 min  |
+| 5. Quote Renegotiation  | 4-5 min  | 20-24 min  |
+| 6. Disputes & Analytics | 5-6 min  | 25-30 min  |
+| 7. Error Handling       | 3-4 min  | 28-34 min  |
+| 8. SQL Queries          | 3-4 min  | 31-38 min  |
+| 9. Summary              | 1-2 min  | 32-40 min  |
 
 **Note:** The script is designed for 25-30 minutes of pure presentation. The bracketed [PAUSE] sections allow time for the housekeeping work (updating database, creating additional data) without extending video time.
 
@@ -708,4 +739,3 @@ Before you start recording:
 6. **Highlight the data changes** - explain how the new result differs from the old result
 7. **Keep the focus on functionality** - don't show source code or technical details beyond SQL
 8. **Be ready for questions** - both partners should understand the entire system
-
