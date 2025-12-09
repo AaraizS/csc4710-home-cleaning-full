@@ -415,6 +415,50 @@ app.post('/seed/create-admin', async (req, res) => {
   }
 });
 
+// ADMIN: Get all service requests
+app.get('/requests/all', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const requests = await dbService.getAllServiceRequests?.() || [];
+    res.json({ success: true, data: requests });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ADMIN: Get all quotes
+app.get('/quotes/all', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const quotes = await dbService.getAllQuotes?.() || [];
+    res.json({ success: true, data: quotes });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ADMIN: Get all orders
+app.get('/orders/all', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const orders = await dbService.getAllOrders?.() || [];
+    res.json({ success: true, data: orders });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ADMIN: Get all bills
+app.get('/bills/all', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const bills = await dbService.getAllBills?.() || [];
+    res.json({ success: true, data: bills });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.use((req, res) => {
   console.log(`[CHECKPOINT] 404 - No route matched for ${req.method} ${req.path}`);
   console.log('[CHECKPOINT] Available routes should include: GET /, /health, /ready, /health/live, /health/detailed, /health/startup');

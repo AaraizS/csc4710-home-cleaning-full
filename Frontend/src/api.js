@@ -51,6 +51,16 @@ export async function completeOrder(data){ return post('/orders/complete', data)
 export async function createBill(data){ return post('/bills/create', data) }
 export async function enableClaude(){ return post('/admin/enable-claude-haiku', {}) }
 
+// Admin data retrieval
+export async function frequentClients(){ return get('/admin/clients/frequent') }
+export async function uncommittedClients(){ return get('/admin/clients/uncommitted') }
+export async function acceptedQuotes(year, month){ return get(`/admin/quotes/accepted?year=${year}&month=${month}`) }
+export async function prospectiveClients(){ return get('/admin/clients/prospective') }
+export async function largestJob(){ return get('/admin/orders/largest') }
+export async function overdueBills(){ return get('/admin/bills/overdue') }
+export async function badClients(){ return get('/admin/clients/bad') }
+export async function goodClients(){ return get('/admin/clients/good') }
+
 export async function insertT1(data){ return post('/t1', data) }
 
 // dashboard (admin only)

@@ -6,7 +6,7 @@ import Register from './pages/Register'
 import Request from './pages/Request'
 import Quotes from './pages/Quotes'
 import Bills from './pages/Bills'
-import Dashboard from './pages/Dashboard'
+import AdminDashboard from './pages/AdminDashboard'
 
 const PAGES = {
   home: 'home',
@@ -110,7 +110,7 @@ export default function App(){
         {!isAdmin && page === PAGES.request && <Request />}
         {!isAdmin && page === PAGES.quotes && <Quotes />}
         {!isAdmin && page === PAGES.bills && <Bills />}
-        {isAdmin && page === PAGES.dashboard && <Dashboard />}
+        {isAdmin && page === PAGES.dashboard && <AdminDashboard />}
       </main>
 
       <footer>

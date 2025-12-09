@@ -521,6 +521,54 @@ class DbService {
     }
   }
 
+  // Get all service requests
+  async getAllServiceRequests() {
+    try {
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      const requests = await ServiceRequest.find().lean();
+      return requests;
+    } catch (err) {
+      console.log('[CHECKPOINT] getAllServiceRequests error:', err.message);
+      return [];
+    }
+  }
+
+  // Get all quotes
+  async getAllQuotes() {
+    try {
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      const quotes = await Quote.find().lean();
+      return quotes;
+    } catch (err) {
+      console.log('[CHECKPOINT] getAllQuotes error:', err.message);
+      return [];
+    }
+  }
+
+  // Get all orders
+  async getAllOrders() {
+    try {
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+      const orders = await ServiceOrder.find().lean();
+      return orders;
+    } catch (err) {
+      console.log('[CHECKPOINT] getAllOrders error:', err.message);
+      return [];
+    }
+  }
+
+  // Get all bills
+  async getAllBills() {
+    try {
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+      const bills = await Bill.find().lean();
+      return bills;
+    } catch (err) {
+      console.log('[CHECKPOINT] getAllBills error:', err.message);
+      return [];
+    }
+  }
+
   // Verify JWT token
   verifyToken(token) {
     try {
