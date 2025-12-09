@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { createQuote, completeOrder, createBill, get } from '../api'
+import { createQuote, completeOrder, createBill } from '../api'
 
 const TABS = {
   requests: 'requests',
@@ -27,21 +27,30 @@ export default function AdminDashboard(){
     setLoading(true)
     setMessage('')
     try {
-      // In a real app, these would be actual API calls to get the data
-      // For now, we're just setting up the structure
+      // Fetch data from backend API
+      const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
+      const token = localStorage.getItem('token')
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      }
+
       if (activeTab === TABS.requests) {
-        // Fetch service requests from backend
-        const res = await get('/requests/all')
-        setRequests(res.data || [])
+        const res = await fetch(API_BASE + '/requests/all', { headers })
+        const data = await res.json()
+        setRequests(data.data || [])
       } else if (activeTab === TABS.quotes) {
-        const res = await get('/quotes/all')
-        setQuotes(res.data || [])
+        const res = await fetch(API_BASE + '/quotes/all', { headers })
+        const data = await res.json()
+        setQuotes(data.data || [])
       } else if (activeTab === TABS.orders) {
-        const res = await get('/orders/all')
-        setOrders(res.data || [])
+        const res = await fetch(API_BASE + '/orders/all', { headers })
+        const data = await res.json()
+        setOrders(data.data || [])
       } else if (activeTab === TABS.bills) {
-        const res = await get('/bills/all')
-        setBills(res.data || [])
+        const res = await fetch(API_BASE + '/bills/all', { headers })
+        const data = await res.json()
+        setBills(data.data || [])
       }
     } catch (err) {
       setMessage('Error loading data: ' + err.message)
