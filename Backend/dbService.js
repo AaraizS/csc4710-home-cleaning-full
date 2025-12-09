@@ -45,6 +45,7 @@ const ServiceRequestSchema = new mongoose.Schema({
   proposed_budget: Number,
   notes: String,
   photos: [String],
+  status: { type: String, enum: ['pending', 'quote_received', 'rejected', 'completed'], default: 'pending' },
   created_at: { type: Date, default: Date.now }
 });
 
