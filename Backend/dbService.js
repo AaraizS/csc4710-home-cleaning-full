@@ -645,6 +645,10 @@ class DbService {
         note,
         status: 'PENDING'
       });
+
+      // Update request status to indicate quote has been sent
+      await ServiceRequest.findByIdAndUpdate(requestId, { status: 'quote_received' });
+
       console.log('[CHECKPOINT] Quote created:', quote._id);
       return { success: true, quote_id: quote._id };
     } catch (err) {

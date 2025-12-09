@@ -47,8 +47,8 @@ export default function AdminDashboard(){
       if (activeTab === TABS.requests) {
         const res = await fetch(API_BASE + '/requests/all', { headers })
         const data = await res.json()
-        // Filter out rejected/completed requests
-        setRequests((data.data || []).filter(r => !r.status || r.status === 'pending'))
+        // Filter to show only pending requests (those without status or with status='pending')
+        setRequests((data.data || []).filter(r => !r.status || r.status.toLowerCase() === 'pending'))
       } else if (activeTab === TABS.quotes) {
         const res = await fetch(API_BASE + '/quotes/all', { headers })
         const data = await res.json()
