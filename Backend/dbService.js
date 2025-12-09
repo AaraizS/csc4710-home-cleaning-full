@@ -476,6 +476,85 @@ class DbService {
     }
   }
 
+  // Get bills for a specific client
+  async getBillsForClient(clientId) {
+    try {
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+      
+      // Get all orders for this client
+      const orders = await ServiceOrder.find({ client_id: clientId }).lean();
+      const orderIds = orders.map(o => o._id);
+      
+      // Get all bills for these orders, enriched with order and request info
+      const bills = await Bill.find({ order_id: { $in: orderIds } }).lean();
+      
+      // Enrich bills with order and request information
+      const enriched = [];
+      for (const bill of bills) {
+        const order = await ServiceOrder.findById(bill.order_id).lean();
+        if (order) {
+          enriched.push({
+            ...bill,
+            order_id: order._id,
+            request_id: order.request_id
+          });
+        }
+      }
+      
+      return enriched;
+    } catch (err) {
+      console.log('[CHECKPOINT] getBillsForClient error:', err.message);
+      return [];
+    }
+  }
+
+  // Pay a bill
+  async payBill(billId, clientId) {
+    try {
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+      
+      const bill = await Bill.findByIdAndUpdate(
+        billId,
+        { status: 'PAID', paid_at: new Date() },
+        { new: true }
+      );
+      
+      if (!bill) {
+        return { success: false, error: 'Bill not found' };
+      }
+      
+      console.log('[CHECKPOINT] Bill paid:', billId);
+      return { success: true, data: bill };
+    } catch (err) {
+      console.log('[CHECKPOINT] payBill error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Dispute a bill
+  async disputeBill(billId, disputeNote) {
+    try {
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+      
+      const bill = await Bill.findByIdAndUpdate(
+        billId,
+        { status: 'DISPUTED', dispute_note: disputeNote },
+        { new: true }
+      );
+      
+      if (!bill) {
+        return { success: false, error: 'Bill not found' };
+      }
+      
+      console.log('[CHECKPOINT] Bill disputed:', billId);
+      return { success: true, data: bill };
+    } catch (err) {
+      console.log('[CHECKPOINT] disputeBill error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
   // Get client's own requests
   async getClientRequests(clientId) {
     try {

@@ -174,7 +174,10 @@ export default function AdminDashboard(){
         setSelectedOrder(null)
         setBillPrice('')
         setBillNote('')
-        loadData()
+        // Reload orders data specifically
+        const ordersRes = await fetch(API_BASE + '/orders/all', { headers })
+        const ordersData = await ordersRes.json()
+        setOrders(ordersData.data || [])
       } else {
         setMessage('Error: ' + (data.error || 'Could not create bill'))
       }

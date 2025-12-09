@@ -506,6 +506,42 @@ app.post('/bills/create', async (req, res) => {
   }
 });
 
+// CLIENT: Get bills for a specific client
+app.get('/bills/client/:client_id', async (req, res) => {
+  try {
+    const { client_id } = req.params;
+    const dbService = await getDbService();
+    const bills = await dbService.getBillsForClient(client_id);
+    res.json({ success: true, data: bills });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// CLIENT: Pay a bill
+app.post('/bills/pay', async (req, res) => {
+  try {
+    const { bill_id, client_id, amount } = req.body;
+    const dbService = await getDbService();
+    const result = await dbService.payBill(bill_id, client_id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// CLIENT: Dispute a bill
+app.post('/bills/dispute', async (req, res) => {
+  try {
+    const { bill_id, note } = req.body;
+    const dbService = await getDbService();
+    const result = await dbService.disputeBill(bill_id, note);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ADMIN: Get analytics
 app.get('/analytics/all', async (req, res) => {
   try {
