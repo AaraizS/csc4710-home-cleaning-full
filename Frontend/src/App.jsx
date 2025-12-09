@@ -105,7 +105,7 @@ export default function App(){
       <main>
         {page === PAGES.home && (
           <section>
-            <h2>Welcome, {isAdmin ? 'Anna' : 'Client'}!</h2>
+            <h2>Welcome, {isAdmin ? 'Anna' : user.first_name}!</h2>
             <p>{isAdmin ? 'View dashboard and manage operations' : 'Submit requests, view quotes, and pay bills'}</p>
           </section>
         )}
