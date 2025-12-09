@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { createQuote, completeOrder, createBill } from '../api'
 
 const TABS = {
   requests: 'requests',
@@ -15,10 +14,21 @@ export default function AdminDashboard(){
   const [quotes, setQuotes] = useState([])
   const [orders, setOrders] = useState([])
   const [bills, setBills] = useState([])
+  const [analytics, setAnalytics] = useState({})
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-  // Load data on mount and when tab changes
+  // For quote creation
+  const [selectedRequest, setSelectedRequest] = useState(null)
+  const [quotePrice, setQuotePrice] = useState('')
+  const [quoteTimeline, setQuoteTimeline] = useState('')
+  const [quoteNote, setQuoteNote] = useState('')
+
+  // For bill creation
+  const [selectedOrder, setSelectedOrder] = useState(null)
+  const [billPrice, setBillPrice] = useState('')
+  const [billNote, setBillNote] = useState('')
+
   useEffect(() => {
     loadData()
   }, [activeTab])
@@ -27,7 +37,6 @@ export default function AdminDashboard(){
     setLoading(true)
     setMessage('')
     try {
-      // Fetch data from backend API
       const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
       const token = localStorage.getItem('token')
       const headers = {
@@ -38,11 +47,13 @@ export default function AdminDashboard(){
       if (activeTab === TABS.requests) {
         const res = await fetch(API_BASE + '/requests/all', { headers })
         const data = await res.json()
-        setRequests(data.data || [])
+        // Filter out rejected/completed requests
+        setRequests((data.data || []).filter(r => !r.status || r.status === 'pending'))
       } else if (activeTab === TABS.quotes) {
         const res = await fetch(API_BASE + '/quotes/all', { headers })
         const data = await res.json()
-        setQuotes(data.data || [])
+        // Filter to show only pending and renegotiating quotes
+        setQuotes((data.data || []).filter(q => q.status === 'PENDING' || q.status === 'RENEGOTIATING'))
       } else if (activeTab === TABS.orders) {
         const res = await fetch(API_BASE + '/orders/all', { headers })
         const data = await res.json()
@@ -51,374 +62,463 @@ export default function AdminDashboard(){
         const res = await fetch(API_BASE + '/bills/all', { headers })
         const data = await res.json()
         setBills(data.data || [])
+      } else if (activeTab === TABS.analytics) {
+        const res = await fetch(API_BASE + '/analytics/all', { headers })
+        const data = await res.json()
+        setAnalytics(data.data || {})
       }
     } catch (err) {
+      console.error('Error loading data:', err.message)
       setMessage('Error loading data: ' + err.message)
     }
     setLoading(false)
   }
 
-  // REQUEST MANAGEMENT TAB
-  function RequestsTab(){
-    const [quoteData, setQuoteData] = useState({ request_id: '', price: '', description: '', timeline: '' })
-    const [rejectId, setRejectId] = useState('')
+  async function handleCreateQuote(){
+    if (!selectedRequest || !quotePrice || !quoteTimeline) {
+      setMessage('Please fill in all fields')
+      return
+    }
 
-    async function handleCreateQuote(){
-      if (!quoteData.request_id || !quoteData.price) {
-        setMessage('Request ID and Price required')
-        return
+    try {
+      const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
+      const token = localStorage.getItem('token')
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
       }
-      try {
-        const res = await createQuote({
-          request_id: quoteData.request_id,
-          price: Number(quoteData.price),
-          description: quoteData.description,
-          timeline: quoteData.timeline
+
+      const res = await fetch(API_BASE + '/quotes/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          request_id: selectedRequest._id,
+          price: Number(quotePrice),
+          timeline: quoteTimeline,
+          note: quoteNote
         })
-        setMessage('Quote created: ' + JSON.stringify(res))
-        setQuoteData({ request_id: '', price: '', description: '', timeline: '' })
-      } catch (err) {
-        setMessage('Error: ' + err.message)
-      }
-    }
+      })
 
-    return (
-      <div>
-        <h3>Service Requests</h3>
-        <div style={{ marginBottom: '20px' }}>
-          <h4>Respond to Request with Quote</h4>
-          <label>Request ID: <input value={quoteData.request_id} onChange={(e) => setQuoteData({...quoteData, request_id: e.target.value})} /></label><br />
-          <label>Price: <input type="number" step="0.01" value={quoteData.price} onChange={(e) => setQuoteData({...quoteData, price: e.target.value})} /></label><br />
-          <label>Description: <textarea value={quoteData.description} onChange={(e) => setQuoteData({...quoteData, description: e.target.value})} style={{width: '100%', minHeight: '80px'}}></textarea></label><br />
-          <label>Timeline: <input placeholder="e.g., 2 days" value={quoteData.timeline} onChange={(e) => setQuoteData({...quoteData, timeline: e.target.value})} /></label><br />
-          <button onClick={handleCreateQuote} style={{marginTop: '10px'}}>Send Quote</button>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <h4>Reject Request</h4>
-          <label>Request ID: <input value={rejectId} onChange={(e) => setRejectId(e.target.value)} /></label><br />
-          <button onClick={() => setMessage('Rejection sent for request: ' + rejectId)} style={{marginTop: '10px', backgroundColor: '#d9534f'}}>Reject Request</button>
-        </div>
-
-        <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
-          <h4>Pending Requests</h4>
-          {requests.length === 0 ? (
-            <p>No pending requests</p>
-          ) : (
-            <table style={{width: '100%', borderCollapse: 'collapse'}}>
-              <thead>
-                <tr style={{backgroundColor: '#e9ecef'}}>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Request ID</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Client</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Service</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Address</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Budget</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Preferred Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map((req, i) => (
-                  <tr key={i}>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}><strong>{req._id?.toString().slice(-6)}</strong></td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.client_id}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.cleaning_type}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.service_address}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>${req.proposed_budget || 'N/A'}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.preferred_datetime ? new Date(req.preferred_datetime).toLocaleDateString() : 'N/A'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // QUOTES MANAGEMENT TAB
-  function QuotesTab(){
-    return (
-      <div>
-        <h3>Manage Quotes</h3>
-        <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
-          <h4>Quotes Sent</h4>
-          {quotes.length === 0 ? (
-            <p>No quotes sent yet</p>
-          ) : (
-            <table style={{width: '100%', borderCollapse: 'collapse'}}>
-              <thead>
-                <tr style={{backgroundColor: '#e9ecef'}}>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Quote ID</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Request ID</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Price</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Status</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Timeline</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quotes.map((quote, i) => (
-                  <tr key={i}>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}><strong>{quote._id?.toString().slice(-6)}</strong></td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{quote.request_id?.toString().slice(-6)}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>${quote.price}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{quote.status || 'Pending'}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{quote.timeline}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // ORDERS MANAGEMENT TAB
-  function OrdersTab(){
-    const [orderId, setOrderId] = useState('')
-
-    async function markCompleted(){
-      if (!orderId) {
-        setMessage('Order ID required')
-        return
-      }
-      try {
-        const res = await completeOrder({ order_id: orderId })
-        setMessage('Order marked as completed: ' + JSON.stringify(res))
-        setOrderId('')
+      const data = await res.json()
+      if (data.success) {
+        setMessage('✓ Quote created successfully!')
+        setSelectedRequest(null)
+        setQuotePrice('')
+        setQuoteTimeline('')
+        setQuoteNote('')
         loadData()
-      } catch (err) {
-        setMessage('Error: ' + err.message)
+      } else {
+        setMessage('Error: ' + (data.error || 'Could not create quote'))
       }
+    } catch (err) {
+      setMessage('Error: ' + err.message)
     }
-
-    return (
-      <div>
-        <h3>Manage Orders</h3>
-        <div style={{ marginBottom: '20px' }}>
-          <h4>Mark Order as Completed</h4>
-          <label>Order ID: <input value={orderId} onChange={(e) => setOrderId(e.target.value)} /></label><br />
-          <button onClick={markCompleted} style={{marginTop: '10px'}}>Mark as Completed</button>
-        </div>
-
-        <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
-          <h4>Active Orders</h4>
-          {orders.length === 0 ? (
-            <p>No active orders</p>
-          ) : (
-            <table style={{width: '100%', borderCollapse: 'collapse'}}>
-              <thead>
-                <tr style={{backgroundColor: '#e9ecef'}}>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Order ID</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Quote ID</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Price</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Status</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Accepted Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order, i) => (
-                  <tr key={i}>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{order._id}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{order.quote_id}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>${order.price}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{order.status}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{new Date(order.accepted_date).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    )
   }
 
-  // BILLS MANAGEMENT TAB
-  function BillsTab(){
-    const [billData, setBillData] = useState({ order_id: '', amount: '', due_date: '', notes: '' })
+  async function handleRejectRequest(){
+    if (!selectedRequest) return
 
-    async function handleCreateBill(){
-      if (!billData.order_id || !billData.amount) {
-        setMessage('Order ID and Amount required')
-        return
+    try {
+      const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
+      const token = localStorage.getItem('token')
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
       }
-      try {
-        const res = await createBill({
-          order_id: billData.order_id,
-          amount: Number(billData.amount),
-          due_date: billData.due_date,
-          notes: billData.notes
+
+      const res = await fetch(`${API_BASE}/requests/${selectedRequest._id}/reject`, {
+        method: 'POST',
+        headers
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setMessage('✓ Request rejected')
+        setSelectedRequest(null)
+        loadData()
+      } else {
+        setMessage('Error: ' + (data.error || 'Could not reject request'))
+      }
+    } catch (err) {
+      setMessage('Error: ' + err.message)
+    }
+  }
+
+  async function handleCreateBill(){
+    if (!selectedOrder || !billPrice) {
+      setMessage('Please fill in all fields')
+      return
+    }
+
+    try {
+      const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
+      const token = localStorage.getItem('token')
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      }
+
+      const res = await fetch(API_BASE + '/bills/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          order_id: selectedOrder._id,
+          amount: Number(billPrice),
+          note: billNote
         })
-        setMessage('Bill created: ' + JSON.stringify(res))
-        setBillData({ order_id: '', amount: '', due_date: '', notes: '' })
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setMessage('✓ Bill created successfully!')
+        setSelectedOrder(null)
+        setBillPrice('')
+        setBillNote('')
         loadData()
-      } catch (err) {
-        setMessage('Error: ' + err.message)
+      } else {
+        setMessage('Error: ' + (data.error || 'Could not create bill'))
       }
+    } catch (err) {
+      setMessage('Error: ' + err.message)
     }
-
-    return (
-      <div>
-        <h3>Manage Bills</h3>
-        <div style={{ marginBottom: '20px' }}>
-          <h4>Create New Bill</h4>
-          <label>Order ID: <input value={billData.order_id} onChange={(e) => setBillData({...billData, order_id: e.target.value})} /></label><br />
-          <label>Amount: <input type="number" step="0.01" value={billData.amount} onChange={(e) => setBillData({...billData, amount: e.target.value})} /></label><br />
-          <label>Due Date: <input type="date" value={billData.due_date} onChange={(e) => setBillData({...billData, due_date: e.target.value})} /></label><br />
-          <label>Notes: <textarea value={billData.notes} onChange={(e) => setBillData({...billData, notes: e.target.value})} style={{width: '100%', minHeight: '60px'}}></textarea></label><br />
-          <button onClick={handleCreateBill} style={{marginTop: '10px'}}>Create Bill</button>
-        </div>
-
-        <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
-          <h4>All Bills</h4>
-          {bills.length === 0 ? (
-            <p>No bills created</p>
-          ) : (
-            <table style={{width: '100%', borderCollapse: 'collapse'}}>
-              <thead>
-                <tr style={{backgroundColor: '#e9ecef'}}>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Bill ID</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Order ID</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Amount</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Status</th>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Due Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bills.map((bill, i) => (
-                  <tr key={i}>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{bill._id}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{bill.order_id}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>${bill.amount}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{bill.status}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{new Date(bill.due_date).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // ANALYTICS TAB
-  function AnalyticsTab(){
-    return (
-      <div>
-        <h3>Business Analytics</h3>
-        <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px'}}>
-          <div style={{padding: '15px', backgroundColor: '#e8f5e9', borderRadius: '4px'}}>
-            <h4>Total Requests</h4>
-            <p style={{fontSize: '24px', fontWeight: 'bold'}}>{requests.length}</p>
-          </div>
-          <div style={{padding: '15px', backgroundColor: '#e3f2fd', borderRadius: '4px'}}>
-            <h4>Quotes Sent</h4>
-            <p style={{fontSize: '24px', fontWeight: 'bold'}}>{quotes.length}</p>
-          </div>
-          <div style={{padding: '15px', backgroundColor: '#f3e5f5', borderRadius: '4px'}}>
-            <h4>Active Orders</h4>
-            <p style={{fontSize: '24px', fontWeight: 'bold'}}>{orders.length}</p>
-          </div>
-          <div style={{padding: '15px', backgroundColor: '#fff3e0', borderRadius: '4px'}}>
-            <h4>Bills Outstanding</h4>
-            <p style={{fontSize: '24px', fontWeight: 'bold'}}>{bills.filter(b => b.status !== 'paid').length}</p>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
     <section>
       <h2>Admin Dashboard - Anna Johnson</h2>
-      <button onClick={() => window.location.hash = '#home'} style={{ marginBottom: '15px', padding: '8px 16px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>← Back to Home</button>
+
+      {message && (
+        <div style={{
+          padding: '12px 15px',
+          marginBottom: '20px',
+          backgroundColor: message.includes('Error') ? '#f8d7da' : '#d4edda',
+          color: message.includes('Error') ? '#721c24' : '#155724',
+          border: `1px solid ${message.includes('Error') ? '#f5c6cb' : '#c3e6cb'}`,
+          borderRadius: '4px'
+        }}>
+          {message}
+        </div>
+      )}
 
       {/* Tab Navigation */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #ddd', paddingBottom: '10px' }}>
-        <button 
-          onClick={() => setActiveTab(TABS.requests)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: activeTab === TABS.requests ? '#007bff' : '#f5f5f5',
-            color: activeTab === TABS.requests ? 'white' : '#333',
-            border: 'none',
-            borderRadius: '4px 4px 0 0',
-            cursor: 'pointer',
-            fontWeight: activeTab === TABS.requests ? 'bold' : 'normal'
-          }}
-        >
-          Requests
-        </button>
-        <button 
-          onClick={() => setActiveTab(TABS.quotes)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: activeTab === TABS.quotes ? '#007bff' : '#f5f5f5',
-            color: activeTab === TABS.quotes ? 'white' : '#333',
-            border: 'none',
-            borderRadius: '4px 4px 0 0',
-            cursor: 'pointer',
-            fontWeight: activeTab === TABS.quotes ? 'bold' : 'normal'
-          }}
-        >
-          Quotes
-        </button>
-        <button 
-          onClick={() => setActiveTab(TABS.orders)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: activeTab === TABS.orders ? '#007bff' : '#f5f5f5',
-            color: activeTab === TABS.orders ? 'white' : '#333',
-            border: 'none',
-            borderRadius: '4px 4px 0 0',
-            cursor: 'pointer',
-            fontWeight: activeTab === TABS.orders ? 'bold' : 'normal'
-          }}
-        >
-          Orders
-        </button>
-        <button 
-          onClick={() => setActiveTab(TABS.bills)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: activeTab === TABS.bills ? '#007bff' : '#f5f5f5',
-            color: activeTab === TABS.bills ? 'white' : '#333',
-            border: 'none',
-            borderRadius: '4px 4px 0 0',
-            cursor: 'pointer',
-            fontWeight: activeTab === TABS.bills ? 'bold' : 'normal'
-          }}
-        >
-          Bills
-        </button>
-        <button 
-          onClick={() => setActiveTab(TABS.analytics)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: activeTab === TABS.analytics ? '#007bff' : '#f5f5f5',
-            color: activeTab === TABS.analytics ? 'white' : '#333',
-            border: 'none',
-            borderRadius: '4px 4px 0 0',
-            cursor: 'pointer',
-            fontWeight: activeTab === TABS.analytics ? 'bold' : 'normal'
-          }}
-        >
-          Analytics
-        </button>
+      <div style={{ display: 'flex', gap: '5px', marginBottom: '20px', borderBottom: '2px solid #333', paddingBottom: '10px' }}>
+        {Object.values(TABS).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: activeTab === tab ? '#333' : '#ddd',
+              color: activeTab === tab ? 'white' : '#333',
+              border: 'none',
+              borderRadius: '4px 4px 0 0',
+              cursor: 'pointer',
+              fontWeight: activeTab === tab ? 'bold' : 'normal',
+              textTransform: 'capitalize'
+            }}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
-      {/* Tab Content */}
       <div style={{ padding: '20px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
         {loading && <p>Loading...</p>}
-        {message && <div style={{padding: '10px', marginBottom: '15px', backgroundColor: '#e8f5e9', borderRadius: '4px'}}>{message}</div>}
-        
-        {activeTab === TABS.requests && <RequestsTab />}
-        {activeTab === TABS.quotes && <QuotesTab />}
-        {activeTab === TABS.orders && <OrdersTab />}
-        {activeTab === TABS.bills && <BillsTab />}
-        {activeTab === TABS.analytics && <AnalyticsTab />}
+
+        {/* REQUESTS TAB */}
+        {activeTab === TABS.requests && !loading && (
+          <div>
+            <h3>Service Requests</h3>
+            {requests.length === 0 ? (
+              <p>No pending requests</p>
+            ) : (
+              <table style={{width: '100%', borderCollapse: 'collapse', marginBottom: '20px'}}>
+                <thead>
+                  <tr style={{backgroundColor: '#e9ecef'}}>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Request ID</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Client Name</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Service Type</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Rooms</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Address</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Preferred Date</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Notes</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.map((req, i) => (
+                    <tr key={i}>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}><strong>{req._id?.toString().slice(-6)}</strong></td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.client_name || 'Unknown'}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.cleaning_type}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.num_rooms}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.service_address}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.preferred_datetime ? new Date(req.preferred_datetime).toLocaleDateString() : 'N/A'}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px', fontSize: '12px'}}>{req.notes ? req.notes.substring(0, 30) + '...' : '-'}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>
+                        <button onClick={() => setSelectedRequest(req)} style={{padding: '4px 8px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '12px'}}>
+                          Quote
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {selectedRequest && (
+              <div style={{padding: '15px', backgroundColor: 'white', border: '2px solid #007bff', borderRadius: '4px', marginTop: '20px'}}>
+                <h4>Create Quote for Request {selectedRequest._id?.toString().slice(-6)}</h4>
+                <div style={{marginBottom: '10px'}}>
+                  <label>
+                    Price: <input type="number" value={quotePrice} onChange={(e) => setQuotePrice(e.target.value)} placeholder="e.g., 150" style={{width: '200px', padding: '5px'}} />
+                  </label>
+                </div>
+                <div style={{marginBottom: '10px'}}>
+                  <label>
+                    Timeline: <input type="text" value={quoteTimeline} onChange={(e) => setQuoteTimeline(e.target.value)} placeholder="e.g., 2-3 hours, Next Monday" style={{width: '200px', padding: '5px'}} />
+                  </label>
+                </div>
+                <div style={{marginBottom: '10px'}}>
+                  <label>
+                    Note: <textarea value={quoteNote} onChange={(e) => setQuoteNote(e.target.value)} placeholder="Additional details..." style={{width: '100%', height: '60px', padding: '5px'}} />
+                  </label>
+                </div>
+                <button onClick={handleCreateQuote} style={{marginRight: '10px', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>
+                  Create Quote
+                </button>
+                <button onClick={handleRejectRequest} style={{marginRight: '10px', padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>
+                  Reject Request
+                </button>
+                <button onClick={() => setSelectedRequest(null)} style={{padding: '8px 16px', backgroundColor: '#999', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* QUOTES TAB */}
+        {activeTab === TABS.quotes && !loading && (
+          <div>
+            <h3>Pending Quotes & Renegotiations</h3>
+            {quotes.length === 0 ? (
+              <p>No pending quotes</p>
+            ) : (
+              <div>
+                {quotes.map((quote, i) => (
+                  <div key={i} style={{marginBottom: '15px', padding: '15px', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '4px'}}>
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px'}}>
+                      <div><strong>Quote ID:</strong> {quote._id?.toString().slice(-6)}</div>
+                      <div><strong>Request ID:</strong> {quote.request_id?.toString().slice(-6)}</div>
+                      <div><strong>Price:</strong> ${quote.price}</div>
+                      <div><strong>Status:</strong> <span style={{padding: '2px 6px', backgroundColor: quote.status === 'RENEGOTIATING' ? '#fff3cd' : '#e7f3ff', borderRadius: '3px'}}>{quote.status}</span></div>
+                    </div>
+                    
+                    {quote.client_note && (
+                      <div style={{marginTop: '10px', padding: '10px', backgroundColor: '#fff3cd', borderRadius: '4px', borderLeft: '4px solid #ffc107'}}>
+                        <strong>Client Renegotiation Note:</strong> {quote.client_note}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ORDERS TAB */}
+        {activeTab === TABS.orders && !loading && (
+          <div>
+            <h3>Accepted Orders</h3>
+            {orders.length === 0 ? (
+              <p>No orders yet</p>
+            ) : (
+              <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                <thead>
+                  <tr style={{backgroundColor: '#e9ecef'}}>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Order ID</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Request ID</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Status</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Created</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order, i) => (
+                    <tr key={i}>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}><strong>{order._id?.toString().slice(-6)}</strong></td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{order.request_id?.toString().slice(-6)}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{order.status || 'Active'}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>
+                        <button onClick={() => setSelectedOrder(order)} style={{padding: '4px 8px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '12px'}}>
+                          Create Bill
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {selectedOrder && (
+              <div style={{padding: '15px', backgroundColor: 'white', border: '2px solid #007bff', borderRadius: '4px', marginTop: '20px'}}>
+                <h4>Create Bill for Order {selectedOrder._id?.toString().slice(-6)}</h4>
+                <div style={{marginBottom: '10px'}}>
+                  <label>
+                    Bill Amount: <input type="number" value={billPrice} onChange={(e) => setBillPrice(e.target.value)} placeholder="e.g., 150" step="0.01" style={{width: '200px', padding: '5px'}} />
+                  </label>
+                </div>
+                <div style={{marginBottom: '10px'}}>
+                  <label>
+                    Note: <textarea value={billNote} onChange={(e) => setBillNote(e.target.value)} placeholder="Payment terms, due date, etc..." style={{width: '100%', height: '60px', padding: '5px'}} />
+                  </label>
+                </div>
+                <button onClick={handleCreateBill} style={{marginRight: '10px', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>
+                  Create Bill
+                </button>
+                <button onClick={() => setSelectedOrder(null)} style={{padding: '8px 16px', backgroundColor: '#999', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* BILLS TAB */}
+        {activeTab === TABS.bills && !loading && (
+          <div>
+            <h3>Bills</h3>
+            {bills.length === 0 ? (
+              <p>No bills yet</p>
+            ) : (
+              <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                <thead>
+                  <tr style={{backgroundColor: '#e9ecef'}}>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Bill ID</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Amount</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Status</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Created</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Due Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bills.map((bill, i) => (
+                    <tr key={i}>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}><strong>{bill._id?.toString().slice(-6)}</strong></td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>${bill.amount}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>
+                        <span style={{padding: '2px 6px', backgroundColor: bill.status === 'paid' ? '#d4edda' : '#f8d7da', color: bill.status === 'paid' ? '#155724' : '#721c24', borderRadius: '3px'}}>
+                          {bill.status || 'Unpaid'}
+                        </span>
+                      </td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{bill.created_at ? new Date(bill.created_at).toLocaleDateString() : 'N/A'}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>{bill.due_date ? new Date(bill.due_date).toLocaleDateString() : 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* ANALYTICS TAB */}
+        {activeTab === TABS.analytics && !loading && (
+          <div>
+            <h3>Analytics & Reports</h3>
+            
+            {analytics.frequent_clients && analytics.frequent_clients.length > 0 && (
+              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+                <h4>Frequent Clients (Most Service Orders)</h4>
+                <ol>
+                  {analytics.frequent_clients.map((client, i) => (
+                    <li key={i}>{client.name} - {client.order_count} orders</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {analytics.uncommitted_clients && analytics.uncommitted_clients.length > 0 && (
+              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+                <h4>Uncommitted Clients (3+ Requests, No Orders)</h4>
+                <ol>
+                  {analytics.uncommitted_clients.map((client, i) => (
+                    <li key={i}>{client.name} - {client.request_count} requests, 0 orders</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {analytics.monthly_quotes && analytics.monthly_quotes.length > 0 && (
+              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+                <h4>This Month's Accepted Quotes</h4>
+                <p>Count: {analytics.monthly_quotes.length}</p>
+                <ul>
+                  {analytics.monthly_quotes.slice(0, 5).map((quote, i) => (
+                    <li key={i}>Quote ID: {quote._id?.toString().slice(-6)} - ${quote.price}</li>
+                  ))}
+                  {analytics.monthly_quotes.length > 5 && <li>... and {analytics.monthly_quotes.length - 5} more</li>}
+                </ul>
+              </div>
+            )}
+
+            {analytics.prospective_clients && analytics.prospective_clients.length > 0 && (
+              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+                <h4>Prospective Clients (Registered, No Requests)</h4>
+                <ol>
+                  {analytics.prospective_clients.map((client, i) => (
+                    <li key={i}>{client.name} - Registered {new Date(client.created_at).toLocaleDateString()}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {analytics.largest_jobs && analytics.largest_jobs.length > 0 && (
+              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: 'white', borderRadius: '4px', border: '1px solid #ddd'}}>
+                <h4>Largest Jobs (Most Rooms Completed)</h4>
+                <ol>
+                  {analytics.largest_jobs.map((job, i) => (
+                    <li key={i}>Request ID: {job._id?.toString().slice(-6)} - {job.num_rooms} rooms</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {analytics.overdue_bills && analytics.overdue_bills.length > 0 && (
+              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#f8d7da', borderRadius: '4px', border: '1px solid #f5c6cb'}}>
+                <h4>Overdue Bills (Older than 1 Week)</h4>
+                <ol>
+                  {analytics.overdue_bills.map((bill, i) => (
+                    <li key={i}>Bill ID: {bill._id?.toString().slice(-6)} - ${bill.amount} (Due: {new Date(bill.due_date).toLocaleDateString()})</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {analytics.bad_clients && analytics.bad_clients.length > 0 && (
+              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#f8d7da', borderRadius: '4px', border: '1px solid #f5c6cb'}}>
+                <h4>Bad Clients (Never Paid Overdue Bills)</h4>
+                <ol>
+                  {analytics.bad_clients.map((client, i) => (
+                    <li key={i}>{client.name} - {client.overdue_count} unpaid bills</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {analytics.good_clients && analytics.good_clients.length > 0 && (
+              <div style={{marginBottom: '20px', padding: '15px', backgroundColor: '#d4edda', borderRadius: '4px', border: '1px solid #c3e6cb'}}>
+                <h4>Good Clients (Paid Within 24 Hours)</h4>
+                <ol>
+                  {analytics.good_clients.map((client, i) => (
+                    <li key={i}>{client.name} - {client.on_time_count} on-time payments</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   )

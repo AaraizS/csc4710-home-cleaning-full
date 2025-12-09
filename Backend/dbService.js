@@ -50,6 +50,7 @@ const ServiceRequestSchema = new mongoose.Schema({
 
 const QuoteSchema = new mongoose.Schema({
   request_id: mongoose.Schema.Types.ObjectId,
+  client_id: mongoose.Schema.Types.ObjectId,
   price: Number,
   time_window_start: Date,
   time_window_end: Date,
@@ -62,6 +63,7 @@ const QuoteSchema = new mongoose.Schema({
 
 const ServiceOrderSchema = new mongoose.Schema({
   request_id: mongoose.Schema.Types.ObjectId,
+  client_id: mongoose.Schema.Types.ObjectId,
   status: { type: String, enum: ['ACCEPTED', 'COMPLETED'], default: 'ACCEPTED' },
   completed_at: Date,
   created_at: { type: Date, default: Date.now }
@@ -207,135 +209,12 @@ class DbService {
   }
 
   // ============================
-  // CREATE QUOTE
-  // ============================
-  async createQuote(request_id, price, tstart, tend, note) {
-    try {
-      console.log('[CHECKPOINT] createQuote called');
-      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
-
-      const quote = await Quote.create({
-        request_id: new mongoose.Types.ObjectId(request_id),
-        price,
-        time_window_start: tstart,
-        time_window_end: tend,
-        note,
-        status: 'PENDING'
-      });
-
-      return { success: true, quote_id: quote._id };
-    } catch (err) {
-      console.log('[CHECKPOINT] createQuote error:', err.message);
-      return { success: false };
-    }
-  }
+  // CREATE QUOTE - see new implementation in admin section below
+  // Old implementation removed - using admin version that includes updateRequestStatus
 
   // ============================
   // ACCEPT QUOTE → CREATE ORDER
-  // ============================
-  async acceptQuote(quote_id) {
-    try {
-      console.log('[CHECKPOINT] acceptQuote called');
-      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
-      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
-
-      const quote = await Quote.findById(quote_id);
-      if (!quote) return { success: false };
-
-      const order = await ServiceOrder.create({
-        request_id: quote.request_id,
-        status: 'ACCEPTED'
-      });
-
-      await Quote.findByIdAndUpdate(quote_id, { status: 'ACCEPTED', updated_at: new Date() });
-
-      return { success: true, order_id: order._id };
-    } catch (err) {
-      console.log('[CHECKPOINT] acceptQuote error:', err.message);
-      return { success: false };
-    }
-  }
-
-  // ============================
-  // COMPLETE ORDER
-  // ============================
-  async completeOrder(order_id) {
-    try {
-      console.log('[CHECKPOINT] completeOrder called');
-      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
-
-      await ServiceOrder.findByIdAndUpdate(order_id, {
-        status: 'COMPLETED',
-        completed_at: new Date()
-      });
-
-      return { success: true };
-    } catch (err) {
-      console.log('[CHECKPOINT] completeOrder error:', err.message);
-      return { success: false };
-    }
-  }
-
-  // ============================
-  // CREATE BILL
-  // ============================
-  async createBill(order_id, amount) {
-    try {
-      console.log('[CHECKPOINT] createBill called');
-      const Bill = mongoose.model('Bill', BillSchema, 'bills');
-
-      const bill = await Bill.create({
-        order_id: new mongoose.Types.ObjectId(order_id),
-        amount,
-        status: 'UNPAID'
-      });
-
-      return { success: true, bill_id: bill._id };
-    } catch (err) {
-      console.log('[CHECKPOINT] createBill error:', err.message);
-      return { success: false };
-    }
-  }
-
-  // ============================
-  // PAY BILL
-  // ============================
-  async payBill(bill_id, client_id, amount) {
-    try {
-      console.log('[CHECKPOINT] payBill called');
-      const Bill = mongoose.model('Bill', BillSchema, 'bills');
-
-      await Bill.findByIdAndUpdate(bill_id, {
-        status: 'PAID',
-        paid_at: new Date()
-      });
-
-      return { success: true };
-    } catch (err) {
-      console.log('[CHECKPOINT] payBill error:', err.message);
-      return { success: false };
-    }
-  }
-
-  // ============================
-  // DISPUTE BILL
-  // ============================
-  async disputeBill(bill_id, note) {
-    try {
-      console.log('[CHECKPOINT] disputeBill called');
-      const Bill = mongoose.model('Bill', BillSchema, 'bills');
-
-      await Bill.findByIdAndUpdate(bill_id, {
-        status: 'DISPUTED',
-        dispute_note: note
-      });
-
-      return { success: true };
-    } catch (err) {
-      console.log('[CHECKPOINT] disputeBill error:', err.message);
-      return { success: false };
-    }
-  }
+  // Old methods removed - newer implementations below handle proper workflows
 
   // ===============================================
   // DASHBOARD QUERIES
@@ -526,8 +405,21 @@ class DbService {
   async getAllServiceRequests() {
     try {
       const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      const Client = mongoose.model('Client', ClientSchema, 'clients');
+      
       const requests = await ServiceRequest.find().lean();
-      return requests;
+      
+      // Enrich with client names
+      const enriched = [];
+      for (const req of requests) {
+        const client = await Client.findById(req.client_id).lean();
+        enriched.push({
+          ...req,
+          client_name: client?.first_name || 'Unknown'
+        });
+      }
+      
+      return enriched;
     } catch (err) {
       console.log('[CHECKPOINT] getAllServiceRequests error:', err.message);
       return [];
@@ -663,15 +555,29 @@ class DbService {
   async acceptQuote(quoteId) {
     try {
       const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
-      const quote = await Quote.findByIdAndUpdate(
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+      
+      const quote = await Quote.findById(quoteId);
+      if (!quote) return null;
+
+      // Create service order
+      const order = await ServiceOrder.create({
+        request_id: quote.request_id,
+        client_id: quote.client_id,
+        status: 'ACCEPTED',
+        created_at: new Date()
+      });
+
+      // Update quote status
+      await Quote.findByIdAndUpdate(
         quoteId,
         { 
           status: 'ACCEPTED',
           updated_at: new Date()
-        },
-        { new: true }
+        }
       );
-      console.log(`[CHECKPOINT] acceptQuote(${quoteId}): accepted`);
+
+      console.log(`[CHECKPOINT] acceptQuote(${quoteId}): created order ${order._id}`);
       return quote;
     } catch (err) {
       console.log('[CHECKPOINT] acceptQuote error:', err.message);
@@ -718,6 +624,198 @@ class DbService {
     } catch (err) {
       console.log('[CHECKPOINT] isDbReady check failed:', err.message);
       return false;
+    }
+  }
+
+  // Create quote
+  async createQuote(requestId, price, timeline, note) {
+    try {
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      
+      // Get the request to find client_id
+      const request = await ServiceRequest.findById(requestId).lean();
+      if (!request) return { success: false, error: 'Request not found' };
+
+      const quote = await Quote.create({
+        request_id: new mongoose.Types.ObjectId(requestId),
+        client_id: request.client_id,
+        price,
+        timeline,
+        note,
+        status: 'PENDING'
+      });
+      console.log('[CHECKPOINT] Quote created:', quote._id);
+      return { success: true, quote_id: quote._id };
+    } catch (err) {
+      console.log('[CHECKPOINT] createQuote error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Update request status
+  async updateRequestStatus(requestId, status) {
+    try {
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      await ServiceRequest.findByIdAndUpdate(requestId, { status });
+      console.log('[CHECKPOINT] Request status updated:', status);
+      return { success: true };
+    } catch (err) {
+      console.log('[CHECKPOINT] updateRequestStatus error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Create bill
+  async createBill(orderId, amount, note) {
+    try {
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+      const bill = await Bill.create({
+        order_id: new mongoose.Types.ObjectId(orderId),
+        amount,
+        note,
+        status: 'unpaid',
+        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+      });
+      console.log('[CHECKPOINT] Bill created:', bill._id);
+      return { success: true, bill_id: bill._id };
+    } catch (err) {
+      console.log('[CHECKPOINT] createBill error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Get comprehensive analytics
+  async getAnalytics() {
+    try {
+      const Client = mongoose.model('Client', ClientSchema, 'clients');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+
+      const analytics = {};
+
+      // 1. Frequent clients - most completed orders
+      const frequentRaw = await ServiceOrder.aggregate([
+        { $group: { _id: '$client_id', order_count: { $sum: 1 } } },
+        { $sort: { order_count: -1 } },
+        { $limit: 5 }
+      ]);
+      
+      analytics.frequent_clients = [];
+      for (const item of frequentRaw) {
+        const client = await Client.findById(item._id).lean();
+        analytics.frequent_clients.push({
+          name: client?.first_name || 'Unknown',
+          order_count: item.order_count
+        });
+      }
+
+      // 2. Uncommitted clients - 3+ requests but no orders
+      const allClients = await Client.find().lean();
+      const clientIds = allClients.map(c => c._id);
+      
+      analytics.uncommitted_clients = [];
+      for (const clientId of clientIds) {
+        const requestCount = await ServiceRequest.countDocuments({ client_id: clientId });
+        const orderCount = await ServiceOrder.countDocuments({ client_id: clientId });
+        if (requestCount >= 3 && orderCount === 0) {
+          const client = await Client.findById(clientId).lean();
+          analytics.uncommitted_clients.push({
+            name: client?.first_name || 'Unknown',
+            request_count: requestCount
+          });
+        }
+      }
+
+      // 3. This month's accepted quotes
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      analytics.monthly_quotes = await Quote.find({
+        status: 'ACCEPTED',
+        created_at: { $gte: monthStart }
+      }).lean();
+
+      // 4. Prospective clients - registered but no requests
+      analytics.prospective_clients = [];
+      for (const client of allClients) {
+        const requestCount = await ServiceRequest.countDocuments({ client_id: client._id });
+        if (requestCount === 0) {
+          analytics.prospective_clients.push({
+            name: client.first_name || 'Unknown',
+            created_at: client.created_at
+          });
+        }
+      }
+
+      // 5. Largest jobs - most rooms completed
+      analytics.largest_jobs = await ServiceRequest.find()
+        .sort({ num_rooms: -1 })
+        .limit(5)
+        .lean();
+
+      // 6. Overdue bills - unpaid older than 1 week
+      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      analytics.overdue_bills = await Bill.find({
+        status: 'unpaid',
+        due_date: { $lt: oneWeekAgo }
+      }).lean();
+
+      // 7. Bad clients - never paid overdue bills
+      const billsByClient = {};
+      const unpaidBills = await Bill.find({ status: 'unpaid', due_date: { $lt: oneWeekAgo } }).lean();
+      for (const bill of unpaidBills) {
+        const order = await ServiceOrder.findById(bill.order_id).lean();
+        if (order) {
+          const clientId = String(order.client_id);
+          billsByClient[clientId] = (billsByClient[clientId] || 0) + 1;
+        }
+      }
+
+      analytics.bad_clients = [];
+      for (const [clientId, overdueCount] of Object.entries(billsByClient)) {
+        if (overdueCount > 0) {
+          const client = await Client.findById(clientId).lean();
+          analytics.bad_clients.push({
+            name: client?.first_name || 'Unknown',
+            overdue_count: overdueCount
+          });
+        }
+      }
+
+      // 8. Good clients - paid within 24 hours
+      const onTimeBills = await Bill.find({ status: 'paid' }).lean();
+      const goodClientMap = {};
+      for (const bill of onTimeBills) {
+        if (bill.paid_at && bill.created_at) {
+          const paidTime = new Date(bill.paid_at).getTime();
+          const createdTime = new Date(bill.created_at).getTime();
+          const hours = (paidTime - createdTime) / (1000 * 60 * 60);
+          if (hours <= 24) {
+            const order = await ServiceOrder.findById(bill.order_id).lean();
+            if (order) {
+              const clientId = String(order.client_id);
+              goodClientMap[clientId] = (goodClientMap[clientId] || 0) + 1;
+            }
+          }
+        }
+      }
+
+      analytics.good_clients = [];
+      for (const [clientId, count] of Object.entries(goodClientMap)) {
+        const client = await Client.findById(clientId).lean();
+        analytics.good_clients.push({
+          name: client?.first_name || 'Unknown',
+          on_time_count: count
+        });
+      }
+
+      console.log('[CHECKPOINT] Analytics retrieved');
+      return analytics;
+    } catch (err) {
+      console.log('[CHECKPOINT] getAnalytics error:', err.message);
+      return {};
     }
   }
 }

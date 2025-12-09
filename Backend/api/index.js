@@ -176,71 +176,8 @@ app.post('/requests/add-photo', async (req, res) => {
   }
 });
 
-app.post('/quotes/create', async (req, res) => {
-  try {
-    const dbService = await getDbService();
-    const { request_id, price, time_window_start, time_window_end, note } = req.body;
-    const result = await dbService.createQuote(request_id, price, time_window_start, time_window_end, note);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/quotes/accept', async (req, res) => {
-  try {
-    const dbService = await getDbService();
-    const { quote_id } = req.body;
-    const result = await dbService.acceptQuote(quote_id);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/orders/complete', async (req, res) => {
-  try {
-    const dbService = await getDbService();
-    const { order_id } = req.body;
-    const result = await dbService.completeOrder(order_id);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/bills/create', async (req, res) => {
-  try {
-    const dbService = await getDbService();
-    const { order_id, amount } = req.body;
-    const result = await dbService.createBill(order_id, amount);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/bills/pay', async (req, res) => {
-  try {
-    const dbService = await getDbService();
-    const { bill_id, client_id, amount } = req.body;
-    const result = await dbService.payBill(bill_id, client_id, amount);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.post('/bills/dispute', async (req, res) => {
-  try {
-    const dbService = await getDbService();
-    const { bill_id, note } = req.body;
-    const result = await dbService.disputeBill(bill_id, note);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+// Note: /quotes/create, /quotes/accept, /orders/complete, /bills/create, /bills/pay, /bills/dispute
+// are defined in the ADMIN section below
 
 app.get('/dashboard/frequent-clients', async (req, res) => {
   try {
@@ -534,16 +471,57 @@ app.post('/quotes/:quoteId/reject', async (req, res) => {
   }
 });
 
-app.use((req, res) => {
-  console.log(`[CHECKPOINT] 404 - No route matched for ${req.method} ${req.path}`);
-  console.log('[CHECKPOINT] Available routes should include: GET /, /health, /ready, /health/live, /health/detailed, /health/startup');
-  res.status(404).json({ error: 'Not Found', path: req.path, message: 'No matching route found' });
+// ADMIN: Create quote
+app.post('/quotes/create', async (req, res) => {
+  try {
+    const { request_id, price, timeline, note } = req.body;
+    const dbService = await getDbService();
+    const result = await dbService.createQuote(request_id, price, timeline, note);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-if (require.main === module) {
-  const port = process.env.PORT || 5052;
-  app.listen(port, () => console.log(`[CHECKPOINT] API server listening on port ${port}`));
-}
+// ADMIN: Reject request
+app.post('/requests/:requestId/reject', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const result = await dbService.updateRequestStatus(req.params.requestId, 'rejected');
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ADMIN: Create bill
+app.post('/bills/create', async (req, res) => {
+  try {
+    const { order_id, amount, note } = req.body;
+    const dbService = await getDbService();
+    const result = await dbService.createBill(order_id, amount, note);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ADMIN: Get analytics
+app.get('/analytics/all', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const analytics = await dbService.getAnalytics?.() || {};
+    res.json({ success: true, data: analytics });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 404 handler for unknown routes
+app.use((req, res) => {
+  console.log(`[CHECKPOINT] 404 - No route matched for ${req.method} ${req.path}`);
+  res.status(404).json({ success: false, error: 'Not found' });
+});
 
 console.log('[CHECKPOINT] API Module loaded - routes registered');
 module.exports = app;
