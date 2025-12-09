@@ -222,10 +222,10 @@ export default function AdminDashboard(){
         setSelectedOrder(null)
         setBillPrice('')
         setBillNote('')
-        // Reload orders data specifically
+        // Reload orders data specifically with filter
         const ordersRes = await fetch(API_BASE + '/orders/all', { headers })
         const ordersData = await ordersRes.json()
-        setOrders(ordersData.data || [])
+        setOrders((ordersData.data || []).filter(o => o.status === 'ACCEPTED'))
       } else {
         setMessage('Error: ' + (data.error || 'Could not create bill'))
       }
