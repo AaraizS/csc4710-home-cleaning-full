@@ -24,6 +24,12 @@ export default function AdminDashboard(){
   const [quoteTimeline, setQuoteTimeline] = useState('')
   const [quoteNote, setQuoteNote] = useState('')
 
+  // For renegotiating quotes
+  const [selectedRenegotiatingQuote, setSelectedRenegotiatingQuote] = useState(null)
+  const [renegotiatePrice, setRenegotiatePrice] = useState('')
+  const [renegotiateTimeline, setRenegotiateTimeline] = useState('')
+  const [renegotiateNote, setRenegotiateNote] = useState('')
+
   // For bill creation
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [billPrice, setBillPrice] = useState('')
@@ -138,6 +144,48 @@ export default function AdminDashboard(){
         loadData()
       } else {
         setMessage('Error: ' + (data.error || 'Could not reject request'))
+      }
+    } catch (err) {
+      setMessage('Error: ' + err.message)
+    }
+  }
+
+  async function handleResubmitRenegotiatingQuote(){
+    if (!selectedRenegotiatingQuote || !renegotiatePrice || !renegotiateTimeline) {
+      setMessage('Please fill in all fields')
+      return
+    }
+
+    try {
+      const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
+      const token = localStorage.getItem('token')
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      }
+
+      // Create a new quote for the same request with the updated terms
+      const res = await fetch(API_BASE + '/quotes/create', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          request_id: selectedRenegotiatingQuote.request_id,
+          price: Number(renegotiatePrice),
+          timeline: renegotiateTimeline,
+          note: renegotiateNote
+        })
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setMessage('✓ Quote resubmitted successfully! Client will see your counter-offer.')
+        setSelectedRenegotiatingQuote(null)
+        setRenegotiatePrice('')
+        setRenegotiateTimeline('')
+        setRenegotiateNote('')
+        loadData()
+      } else {
+        setMessage('Error: ' + (data.error || 'Could not resubmit quote'))
       }
     } catch (err) {
       setMessage('Error: ' + err.message)
@@ -325,8 +373,42 @@ export default function AdminDashboard(){
                         <strong>Client Renegotiation Note:</strong> {quote.client_note}
                       </div>
                     )}
+
+                    {quote.status === 'RENEGOTIATING' && (
+                      <button onClick={() => { setSelectedRenegotiatingQuote(quote); setRenegotiatePrice(quote.price); setRenegotiateTimeline(''); setRenegotiateNote(''); }} style={{marginTop: '10px', padding: '4px 8px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '12px'}}>
+                        Re-submit Quote
+                      </button>
+                    )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {selectedRenegotiatingQuote && (
+              <div style={{padding: '15px', backgroundColor: 'white', border: '2px solid #007bff', borderRadius: '4px', marginTop: '20px'}}>
+                <h4>Re-submit Quote for Request {selectedRenegotiatingQuote.request_id?.toString().slice(-6)}</h4>
+                <p style={{fontSize: '12px', color: '#666', marginBottom: '15px'}}>Client's note: "{selectedRenegotiatingQuote.client_note}"</p>
+                <div style={{marginBottom: '10px'}}>
+                  <label>
+                    New Price: <input type="number" value={renegotiatePrice} onChange={(e) => setRenegotiatePrice(e.target.value)} placeholder="e.g., 150" step="0.01" style={{width: '200px', padding: '5px'}} />
+                  </label>
+                </div>
+                <div style={{marginBottom: '10px'}}>
+                  <label>
+                    Timeline: <input type="text" value={renegotiateTimeline} onChange={(e) => setRenegotiateTimeline(e.target.value)} placeholder="e.g., This weekend" style={{width: '200px', padding: '5px'}} />
+                  </label>
+                </div>
+                <div style={{marginBottom: '10px'}}>
+                  <label>
+                    Note: <textarea value={renegotiateNote} onChange={(e) => setRenegotiateNote(e.target.value)} placeholder="Optional notes to client..." style={{width: '100%', height: '60px', padding: '5px'}} />
+                  </label>
+                </div>
+                <button onClick={handleResubmitRenegotiatingQuote} style={{marginRight: '10px', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>
+                  Re-submit Quote
+                </button>
+                <button onClick={() => setSelectedRenegotiatingQuote(null)} style={{padding: '8px 16px', backgroundColor: '#999', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'}}>
+                  Cancel
+                </button>
               </div>
             )}
           </div>
