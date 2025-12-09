@@ -1,32 +1,73 @@
 // =======================
-// dbService.js (FULL VERSION)
+// dbService.js (MONGODB VERSION)
 // =======================
 
-const mysql = require("mysql");
+const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 dotenv.config();
 
 let instance = null;
 
-console.log("HOST:", process.env.HOST);
-console.log("DB USER:", process.env.DB_USER);
-console.log("PASSWORD:", process.env.PASSWORD);
-console.log("DATABASE:", process.env.DATABASE);
-console.log("DB PORT:", process.env.DB_PORT);
+console.log("[CHECKPOINT] DbService initializing with MongoDB");
 
-const connection = mysql.createConnection({
-  host: process.env.HOST,
-  user: process.env.DB_USER,
-  password: process.env.PASSWORD,
-  database: process.env.DATABASE,
-  port: process.env.DB_PORT
+// Define MongoDB Schemas
+const ClientSchema = new mongoose.Schema({
+  first_name: String,
+  last_name: String,
+  address: String,
+  phone: String,
+  email: { type: String, unique: true },
+  cc_last4: String,
+  cc_token: String,
+  claude_haiku_enabled: { type: Boolean, default: false },
+  created_at: { type: Date, default: Date.now }
 });
 
-connection.connect((err) => {
-  if (err) {
-    console.log(err.message);
-  }
-  console.log("DB STATUS:", connection.state);
+const UserAccountSchema = new mongoose.Schema({
+  username: { type: String, unique: true },
+  password: String,
+  role: { type: String, enum: ['CLIENT', 'ADMIN'], default: 'CLIENT' },
+  client_id: mongoose.Schema.Types.ObjectId,
+  created_at: { type: Date, default: Date.now }
+});
+
+const ServiceRequestSchema = new mongoose.Schema({
+  client_id: mongoose.Schema.Types.ObjectId,
+  service_address: String,
+  cleaning_type: String,
+  num_rooms: Number,
+  preferred_datetime: Date,
+  proposed_budget: Number,
+  notes: String,
+  photos: [String],
+  created_at: { type: Date, default: Date.now }
+});
+
+const QuoteSchema = new mongoose.Schema({
+  request_id: mongoose.Schema.Types.ObjectId,
+  price: Number,
+  time_window_start: Date,
+  time_window_end: Date,
+  note: String,
+  status: { type: String, enum: ['PENDING', 'ACCEPTED'], default: 'PENDING' },
+  created_at: { type: Date, default: Date.now },
+  updated_at: { type: Date, default: Date.now }
+});
+
+const ServiceOrderSchema = new mongoose.Schema({
+  request_id: mongoose.Schema.Types.ObjectId,
+  status: { type: String, enum: ['ACCEPTED', 'COMPLETED'], default: 'ACCEPTED' },
+  completed_at: Date,
+  created_at: { type: Date, default: Date.now }
+});
+
+const BillSchema = new mongoose.Schema({
+  order_id: mongoose.Schema.Types.ObjectId,
+  amount: Number,
+  status: { type: String, enum: ['UNPAID', 'PAID', 'DISPUTED'], default: 'UNPAID' },
+  dispute_note: String,
+  created_at: { type: Date, default: Date.now },
+  paid_at: Date
 });
 
 class DbService {
@@ -39,17 +80,9 @@ class DbService {
   // ============================
   async loginUser(username, password) {
     try {
-      const user = await new Promise((resolve, reject) => {
-        const query = `
-          SELECT user_id, username, role, client_id
-          FROM UserAccount
-          WHERE username = ? AND password = ?
-        `;
-        connection.query(query, [username, password], (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows[0]);
-        });
-      });
+      console.log('[CHECKPOINT] loginUser called');
+      const UserAccount = mongoose.model('UserAccount', UserAccountSchema, 'user_accounts');
+      const user = await UserAccount.findOne({ username, password });
 
       if (!user) return { success: false };
 
@@ -59,7 +92,7 @@ class DbService {
         client_id: user.client_id
       };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] loginUser error:', err.message);
       return { success: false };
     }
   }
@@ -69,32 +102,32 @@ class DbService {
   // ============================
   async registerClient(first, last, address, phone, email, cc_last4, cc_token, password) {
     try {
-      const clientId = await new Promise((resolve, reject) => {
-        const q = `
-          INSERT INTO Client (first_name, last_name, address, phone, email, cc_last4, cc_token)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
-        const params = [first, last, address, phone, email, cc_last4, cc_token];
-        connection.query(q, params, (err, res) => {
-          if (err) reject(err);
-          else resolve(res.insertId);
-        });
+      console.log('[CHECKPOINT] registerClient called');
+      const Client = mongoose.model('Client', ClientSchema, 'clients');
+      const UserAccount = mongoose.model('UserAccount', UserAccountSchema, 'user_accounts');
+
+      // Create client
+      const client = await Client.create({
+        first_name: first,
+        last_name: last,
+        address,
+        phone,
+        email,
+        cc_last4,
+        cc_token
       });
 
-      await new Promise((resolve, reject) => {
-        const q = `
-          INSERT INTO UserAccount (username, password, role, client_id)
-          VALUES (?, ?, 'CLIENT', ?)
-        `;
-        connection.query(q, [email, password, clientId], (err, result) => {
-          if (err) reject(err);
-          else resolve(result);
-        });
+      // Create user account
+      await UserAccount.create({
+        username: email,
+        password,
+        role: 'CLIENT',
+        client_id: client._id
       });
 
-      return { success: true, client_id: clientId };
+      return { success: true, client_id: client._id };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] registerClient error:', err.message);
       return { success: false };
     }
   }
@@ -104,21 +137,22 @@ class DbService {
   // ============================
   async createServiceRequest(client_id, address, type, rooms, datetime, budget, notes) {
     try {
-      const requestId = await new Promise((resolve, reject) => {
-        const q = `
-          INSERT INTO ServiceRequest
-          (client_id, service_address, cleaning_type, num_rooms, preferred_datetime, proposed_budget, notes)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `;
-        connection.query(q, [client_id, address, type, rooms, datetime, budget, notes], (err, res) => {
-          if (err) reject(err);
-          else resolve(res.insertId);
-        });
+      console.log('[CHECKPOINT] createServiceRequest called');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+
+      const request = await ServiceRequest.create({
+        client_id: new mongoose.Types.ObjectId(client_id),
+        service_address: address,
+        cleaning_type: type,
+        num_rooms: rooms,
+        preferred_datetime: datetime,
+        proposed_budget: budget,
+        notes
       });
 
-      return { success: true, request_id: requestId };
+      return { success: true, request_id: request._id };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] createServiceRequest error:', err.message);
       return { success: false };
     }
   }
@@ -128,43 +162,42 @@ class DbService {
   // ============================
   async addPhoto(request_id, url) {
     try {
-      const id = await new Promise((resolve, reject) => {
-        const q = `
-          INSERT INTO RequestPhoto (request_id, photo_url)
-          VALUES (?, ?)
-        `;
-        connection.query(q, [request_id, url], (err, res) => {
-          if (err) reject(err);
-          else resolve(res.insertId);
-        });
-      });
+      console.log('[CHECKPOINT] addPhoto called');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
 
-      return { success: true, photo_id: id };
+      const request = await ServiceRequest.findByIdAndUpdate(
+        request_id,
+        { $push: { photos: url } },
+        { new: true }
+      );
+
+      return { success: true, photo_id: request._id };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] addPhoto error:', err.message);
       return { success: false };
     }
   }
 
   // ============================
-  // CREATE QUOTE (Anna)
+  // CREATE QUOTE
   // ============================
   async createQuote(request_id, price, tstart, tend, note) {
     try {
-      const quoteId = await new Promise((resolve, reject) => {
-        const q = `
-          INSERT INTO Quote (request_id, price, time_window_start, time_window_end, note, status)
-          VALUES (?, ?, ?, ?, ?, 'PENDING')
-        `;
-        connection.query(q, [request_id, price, tstart, tend, note], (err, res) => {
-          if (err) reject(err);
-          else resolve(res.insertId);
-        });
+      console.log('[CHECKPOINT] createQuote called');
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+
+      const quote = await Quote.create({
+        request_id: new mongoose.Types.ObjectId(request_id),
+        price,
+        time_window_start: tstart,
+        time_window_end: tend,
+        note,
+        status: 'PENDING'
       });
 
-      return { success: true, quote_id: quoteId };
+      return { success: true, quote_id: quote._id };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] createQuote error:', err.message);
       return { success: false };
     }
   }
@@ -174,62 +207,43 @@ class DbService {
   // ============================
   async acceptQuote(quote_id) {
     try {
-      const request_id = await new Promise((resolve, reject) => {
-        const q = `SELECT request_id FROM Quote WHERE quote_id = ?`;
-        connection.query(q, [quote_id], (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows[0]?.request_id);
-        });
+      console.log('[CHECKPOINT] acceptQuote called');
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+
+      const quote = await Quote.findById(quote_id);
+      if (!quote) return { success: false };
+
+      const order = await ServiceOrder.create({
+        request_id: quote.request_id,
+        status: 'ACCEPTED'
       });
 
-      if (!request_id) return { success: false };
+      await Quote.findByIdAndUpdate(quote_id, { status: 'ACCEPTED', updated_at: new Date() });
 
-      const orderId = await new Promise((resolve, reject) => {
-        const q = `
-          INSERT INTO ServiceOrder (request_id, status)
-          VALUES (?, 'ACCEPTED')
-        `;
-        connection.query(q, [request_id], (err, res) => {
-          if (err) reject(err);
-          else resolve(res.insertId);
-        });
-      });
-
-      await new Promise((resolve, reject) => {
-        const q = `UPDATE Quote SET status = 'ACCEPTED' WHERE quote_id = ?`;
-        connection.query(q, [quote_id], (err, res) => {
-          if (err) reject(err);
-          else resolve(res);
-        });
-      });
-
-      return { success: true, order_id: orderId };
+      return { success: true, order_id: order._id };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] acceptQuote error:', err.message);
       return { success: false };
     }
   }
 
   // ============================
-  // COMPLETE ORDER (Anna)
+  // COMPLETE ORDER
   // ============================
   async completeOrder(order_id) {
     try {
-      await new Promise((resolve, reject) => {
-        const q = `
-          UPDATE ServiceOrder
-          SET status = 'COMPLETED', completed_at = NOW()
-          WHERE order_id = ?
-        `;
-        connection.query(q, [order_id], (err, res) => {
-          if (err) reject(err);
-          else resolve(res);
-        });
+      console.log('[CHECKPOINT] completeOrder called');
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+
+      await ServiceOrder.findByIdAndUpdate(order_id, {
+        status: 'COMPLETED',
+        completed_at: new Date()
       });
 
       return { success: true };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] completeOrder error:', err.message);
       return { success: false };
     }
   }
@@ -239,44 +253,38 @@ class DbService {
   // ============================
   async createBill(order_id, amount) {
     try {
-      const billId = await new Promise((resolve, reject) => {
-        const q = `
-          INSERT INTO Bill (order_id, amount, created_at, status)
-          VALUES (?, ?, NOW(), 'UNPAID')
-        `;
-        connection.query(q, [order_id, amount], (err, res) => {
-          if (err) reject(err);
-          else resolve(res.insertId);
-        });
+      console.log('[CHECKPOINT] createBill called');
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+
+      const bill = await Bill.create({
+        order_id: new mongoose.Types.ObjectId(order_id),
+        amount,
+        status: 'UNPAID'
       });
 
-      return { success: true, bill_id: billId };
+      return { success: true, bill_id: bill._id };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] createBill error:', err.message);
       return { success: false };
     }
   }
 
   // ============================
-  // PAY BILL (Client)
+  // PAY BILL
   // ============================
   async payBill(bill_id, client_id, amount) {
     try {
-      await new Promise((resolve, reject) => {
-        const q = `
-          UPDATE Bill 
-          SET status = 'PAID', paid_at = NOW()
-          WHERE bill_id = ? AND amount = ?
-        `;
-        connection.query(q, [bill_id, amount], (err, res) => {
-          if (err) reject(err);
-          else resolve(res);
-        });
+      console.log('[CHECKPOINT] payBill called');
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+
+      await Bill.findByIdAndUpdate(bill_id, {
+        status: 'PAID',
+        paid_at: new Date()
       });
 
       return { success: true };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] payBill error:', err.message);
       return { success: false };
     }
   }
@@ -286,109 +294,187 @@ class DbService {
   // ============================
   async disputeBill(bill_id, note) {
     try {
-      await new Promise((resolve, reject) => {
-        const q = `
-          UPDATE Bill SET status = 'DISPUTED', dispute_note = ?
-          WHERE bill_id = ?
-        `;
-        connection.query(q, [note, bill_id], (err, res) => {
-          if (err) reject(err);
-          else resolve(res);
-        });
+      console.log('[CHECKPOINT] disputeBill called');
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+
+      await Bill.findByIdAndUpdate(bill_id, {
+        status: 'DISPUTED',
+        dispute_note: note
       });
 
       return { success: true };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] disputeBill error:', err.message);
       return { success: false };
     }
   }
 
   // ===============================================
-  // DASHBOARD QUERIES (Anna only)
+  // DASHBOARD QUERIES
   // ===============================================
 
   async frequentClients() {
-    return await this.runQuery(`
-      SELECT c.client_id, c.first_name, c.last_name, COUNT(o.order_id) AS completed_orders
-      FROM Client c
-      JOIN ServiceRequest r ON c.client_id = r.client_id
-      JOIN ServiceOrder o ON o.request_id = r.request_id
-      WHERE o.status = 'COMPLETED'
-      GROUP BY c.client_id
-      ORDER BY completed_orders DESC;
-    `);
+    try {
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+      const Client = mongoose.model('Client', ClientSchema, 'clients');
+
+      const completedOrders = await ServiceOrder.aggregate([
+        { $match: { status: 'COMPLETED' } },
+        { $group: { _id: '$request_id', count: { $sum: 1 } } }
+      ]);
+
+      const requests = await ServiceRequest.find({
+        _id: { $in: completedOrders.map(o => o._id) }
+      });
+
+      const clientIds = [...new Set(requests.map(r => r.client_id))];
+      const clients = await Client.find({ _id: { $in: clientIds } });
+
+      return clients.sort((a, b) => b.created_at - a.created_at);
+    } catch (err) {
+      console.log('[CHECKPOINT] frequentClients error:', err.message);
+      return [];
+    }
   }
 
   async uncommittedClients() {
-    return await this.runQuery(`
-      SELECT c.client_id, c.first_name, c.last_name
-      FROM Client c
-      JOIN ServiceRequest r ON c.client_id = r.client_id
-      LEFT JOIN ServiceOrder o ON o.request_id = r.request_id
-      GROUP BY c.client_id
-      HAVING COUNT(r.request_id) >= 3 AND SUM(o.order_id IS NOT NULL) = 0;
-    `);
+    try {
+      const Client = mongoose.model('Client', ClientSchema, 'clients');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+
+      const clients = await Client.find();
+      const result = [];
+
+      for (const client of clients) {
+        const requests = await ServiceRequest.countDocuments({ client_id: client._id });
+        if (requests >= 3) result.push(client);
+      }
+
+      return result;
+    } catch (err) {
+      console.log('[CHECKPOINT] uncommittedClients error:', err.message);
+      return [];
+    }
   }
 
   async acceptedQuotes(year, month) {
-    return await this.runQueryParams(`
-      SELECT * FROM Quote
-      WHERE status = 'ACCEPTED'
-      AND YEAR(updated_at) = ?
-      AND MONTH(updated_at) = ?
-    `, [year, month]);
+    try {
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+
+      return await Quote.find({
+        status: 'ACCEPTED',
+        updated_at: {
+          $gte: new Date(year, month - 1, 1),
+          $lt: new Date(year, month, 1)
+        }
+      });
+    } catch (err) {
+      console.log('[CHECKPOINT] acceptedQuotes error:', err.message);
+      return [];
+    }
   }
 
   async prospectiveClients() {
-    return await this.runQuery(`
-      SELECT c.client_id, c.first_name, c.last_name
-      FROM Client c
-      LEFT JOIN ServiceRequest r ON c.client_id = r.client_id
-      WHERE r.request_id IS NULL;
-    `);
+    try {
+      const Client = mongoose.model('Client', ClientSchema, 'clients');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+
+      const clientsWithRequests = await ServiceRequest.distinct('client_id');
+      return await Client.find({ _id: { $nin: clientsWithRequests } });
+    } catch (err) {
+      console.log('[CHECKPOINT] prospectiveClients error:', err.message);
+      return [];
+    }
   }
 
   async largestJob() {
-    return await this.runQuery(`
-      SELECT r.request_id, r.num_rooms
-      FROM ServiceRequest r
-      JOIN ServiceOrder o ON r.request_id = o.request_id
-      WHERE o.status = 'COMPLETED'
-      ORDER BY r.num_rooms DESC
-      LIMIT 1;
-    `);
+    try {
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+
+      const completedOrders = await ServiceOrder.find({ status: 'COMPLETED' });
+      const requestIds = completedOrders.map(o => o.request_id);
+
+      return await ServiceRequest.findOne({
+        _id: { $in: requestIds }
+      }).sort({ num_rooms: -1 });
+    } catch (err) {
+      console.log('[CHECKPOINT] largestJob error:', err.message);
+      return null;
+    }
   }
 
   async overdueBills() {
-    return await this.runQuery(`
-      SELECT * FROM Bill
-      WHERE status = 'UNPAID'
-      AND created_at < NOW() - INTERVAL 7 DAY;
-    `);
+    try {
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      return await Bill.find({
+        status: 'UNPAID',
+        created_at: { $lt: sevenDaysAgo }
+      });
+    } catch (err) {
+      console.log('[CHECKPOINT] overdueBills error:', err.message);
+      return [];
+    }
   }
 
   async badClients() {
-    return await this.runQuery(`
-      SELECT DISTINCT c.client_id, c.first_name, c.last_name
-      FROM Client c
-      JOIN ServiceRequest r ON c.client_id = r.client_id
-      JOIN ServiceOrder o ON r.request_id = o.request_id
-      JOIN Bill b ON b.order_id = o.order_id
-      WHERE b.status = 'UNPAID'
-      AND b.created_at < NOW() - INTERVAL 7 DAY;
-    `);
+    try {
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      const Client = mongoose.model('Client', ClientSchema, 'clients');
+
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const unpaidBills = await Bill.find({
+        status: 'UNPAID',
+        created_at: { $lt: sevenDaysAgo }
+      });
+
+      const orderIds = unpaidBills.map(b => b.order_id);
+      const orders = await ServiceOrder.find({ _id: { $in: orderIds } });
+      const requestIds = orders.map(o => o.request_id);
+      const requests = await ServiceRequest.find({ _id: { $in: requestIds } });
+      const clientIds = requests.map(r => r.client_id);
+
+      return await Client.find({ _id: { $in: clientIds } });
+    } catch (err) {
+      console.log('[CHECKPOINT] badClients error:', err.message);
+      return [];
+    }
   }
 
   async goodClients() {
-    return await this.runQuery(`
-      SELECT DISTINCT c.client_id, c.first_name, c.last_name
-      FROM Client c
-      JOIN ServiceRequest r ON c.client_id = r.client_id
-      JOIN ServiceOrder o ON r.request_id = o.request_id
-      JOIN Bill b ON o.order_id = b.order_id
-      WHERE TIMESTAMPDIFF(HOUR, b.created_at, b.paid_at) <= 24;
-    `);
+    try {
+      const Bill = mongoose.model('Bill', BillSchema, 'bills');
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      const Client = mongoose.model('Client', ClientSchema, 'clients');
+
+      const paidBills = await Bill.find({
+        status: 'PAID',
+        paid_at: { $exists: true }
+      });
+
+      const fastPayBills = paidBills.filter(bill => {
+        if (!bill.paid_at) return false;
+        const hoursToPayment = (bill.paid_at - bill.created_at) / (1000 * 60 * 60);
+        return hoursToPayment <= 24;
+      });
+
+      const orderIds = fastPayBills.map(b => b.order_id);
+      const orders = await ServiceOrder.find({ _id: { $in: orderIds } });
+      const requestIds = orders.map(o => o.request_id);
+      const requests = await ServiceRequest.find({ _id: { $in: requestIds } });
+      const clientIds = requests.map(r => r.client_id);
+
+      return await Client.find({ _id: { $in: clientIds } });
+    } catch (err) {
+      console.log('[CHECKPOINT] goodClients error:', err.message);
+      return [];
+    }
   }
 
   // ============================
@@ -396,75 +482,26 @@ class DbService {
   // ============================
   async enableClaudeHaikuForAllClients() {
     try {
-      // Try to add the column if it doesn't exist (ignore duplicate column error)
-      await new Promise((resolve, reject) => {
-        const q = `ALTER TABLE Client ADD COLUMN claude_haiku_enabled TINYINT DEFAULT 0`;
-        connection.query(q, (err, res) => {
-          if (err) {
-            // MySQL duplicate column error codes: ER_DUP_FIELDNAME / errno 1060
-            if (err.code === 'ER_DUP_FIELDNAME' || err.errno === 1060) resolve();
-            else reject(err);
-          } else resolve(res);
-        });
-      });
+      console.log('[CHECKPOINT] enableClaudeHaikuForAllClients called');
+      const Client = mongoose.model('Client', ClientSchema, 'clients');
 
-      // Enable the flag for all clients
-      await new Promise((resolve, reject) => {
-        const q = `UPDATE Client SET claude_haiku_enabled = 1`;
-        connection.query(q, (err, res) => {
-          if (err) reject(err);
-          else resolve(res);
-        });
-      });
+      await Client.updateMany({}, { claude_haiku_enabled: true });
 
       return { success: true };
     } catch (err) {
-      console.log(err);
+      console.log('[CHECKPOINT] enableClaudeHaikuForAllClients error:', err.message);
       return { success: false };
     }
   }
 
   async isDbReady() {
     try {
-      return await new Promise((resolve) => {
-        connection.ping((err) => {
-          resolve(!err);
-        });
-      });
+      const state = mongoose.connection.readyState;
+      // States: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+      return state === 1;
     } catch (err) {
-      console.log('DB readiness check failed', err);
+      console.log('[CHECKPOINT] isDbReady check failed:', err.message);
       return false;
-    }
-  }
-
-  // ============================
-  // HELPER QUERIES
-  // ============================
-  async runQuery(query) {
-    try {
-      return await new Promise((resolve, reject) => {
-        connection.query(query, (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        });
-      });
-    } catch (err) {
-      console.log(err);
-      return [];
-    }
-  }
-
-  async runQueryParams(query, params) {
-    try {
-      return await new Promise((resolve, reject) => {
-        connection.query(query, params, (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        });
-      });
-    } catch (err) {
-      console.log(err);
-      return [];
     }
   }
 }
