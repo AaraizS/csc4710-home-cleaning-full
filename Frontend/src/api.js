@@ -62,15 +62,4 @@ export async function badClients(){ return get('/admin/clients/bad') }
 export async function goodClients(){ return get('/admin/clients/good') }
 
 export async function insertT1(data){ return post('/t1', data) }
-
-// dashboard (admin only)
-export async function frequentClients(){ return get('/dashboard/frequent-clients') }
-export async function uncommittedClients(){ return get('/dashboard/uncommitted-clients') }
-export async function acceptedQuotes(year, month){ return get(`/dashboard/accepted-quotes?year=${year}&month=${month}`) }
-export async function prospectiveClients(){ return get('/dashboard/prospective-clients') }
-export async function largestJob(){ return get('/dashboard/largest-job') }
-export async function overdueBills(){ return get('/dashboard/overdue-bills') }
-export async function badClients(){ return get('/dashboard/bad-clients') }
-export async function goodClients(){ return get('/dashboard/good-clients') }
-
 export default { registerClient, createRequest, loginUser }
