@@ -6,6 +6,8 @@ export default function Request({ clientId }){
   const [loading, setLoading] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [photoError, setPhotoError] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   const MAX_PHOTOS = 5
 
@@ -54,12 +56,25 @@ export default function Request({ clientId }){
       const res = await createRequest(data)
       // also save to Mongo t1 for demo
       await insertT1(data)
-      setOut(JSON.stringify(res, null, 2))
+      
+      setSuccessMessage(`✓ Request submitted successfully! Request ID: ${res.request_id?.toString().slice(-6) || 'Generated'}`)
+      setSubmitted(true)
+      setOut('')
       setPhotoFiles([])
-      // Reset file input
+      // Reset form
+      e.target.reset()
       const fileInput = e.target.querySelector('input[type="file"]')
       if (fileInput) fileInput.value = ''
-    }catch(err){ setOut(err.toString()) }
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setSubmitted(false)
+        setSuccessMessage('')
+      }, 5000)
+    }catch(err){ 
+      setOut(`Error: ${err.toString()}`)
+      setSubmitted(false)
+    }
     setLoading(false)
   }
 
@@ -67,6 +82,21 @@ export default function Request({ clientId }){
     <section>
       <h2>Submit Service Request</h2>
       <button onClick={() => window.location.hash = '#home'} style={{ marginBottom: '15px', padding: '8px 16px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>← Back to Home</button>
+      
+      {submitted && successMessage && (
+        <div style={{
+          padding: '15px',
+          marginBottom: '20px',
+          backgroundColor: '#d4edda',
+          color: '#155724',
+          border: '1px solid #c3e6cb',
+          borderRadius: '4px',
+          fontSize: '16px'
+        }}>
+          {successMessage}
+        </div>
+      )}
+      
       <form onSubmit={onSubmit}>
         <label>Service address: <input name="service_address" required /></label><br />
         <label>Cleaning type: <select name="cleaning_type"><option>basic</option><option>deep cleaning</option><option>move-out</option></select></label><br />
@@ -79,7 +109,7 @@ export default function Request({ clientId }){
         {photoError && <p style={{color:'red'}}>{photoError}</p>}
         <button type="submit" disabled={loading}>{loading? 'Submitting...' : 'Submit Request'}</button>
       </form>
-      <pre className="output">{out}</pre>
+      {out && <pre className="output" style={{ color: 'red', marginTop: '15px' }}>{out}</pre>}
     </section>
   )
 }

@@ -27,12 +27,15 @@ export default function MyRequests({ clientId }){
         ...(token && { 'Authorization': `Bearer ${token}` })
       }
 
+      console.log('Loading requests for clientId:', clientId)
       const res = await fetch(`${API_BASE}/requests/client/${clientId}`, { headers })
       const data = await res.json()
       console.log('Requests response:', data)
+      console.log('Setting requests to:', data.data)
       setRequests(data.data || [])
     } catch (err) {
       console.error('Error loading requests:', err.message)
+      setRequests([])
     }
     setLoading(false)
   }

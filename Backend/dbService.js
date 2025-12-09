@@ -574,14 +574,29 @@ class DbService {
   async getClientRequests(clientId) {
     try {
       const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
-      // Try matching as ObjectId or as string
-      let requests = await ServiceRequest.find({ client_id: clientId }).lean();
-      if (requests.length === 0 && mongoose.Types.ObjectId.isValid(clientId)) {
-        // Try as ObjectId
-        requests = await ServiceRequest.find({ client_id: mongoose.Types.ObjectId(clientId) }).lean();
+      
+      // Build query that matches both string and ObjectId formats
+      let requests = [];
+      
+      // Try multiple query approaches
+      if (mongoose.Types.ObjectId.isValid(clientId)) {
+        const objId = new mongoose.Types.ObjectId(clientId);
+        requests = await ServiceRequest.find({ client_id: objId }).lean();
       }
+      
+      // If no results, try as direct string/value
+      if (requests.length === 0) {
+        requests = await ServiceRequest.find({ client_id: clientId }).lean();
+      }
+      
+      // Try partial match on toString version
+      if (requests.length === 0) {
+        const allRequests = await ServiceRequest.find({}).lean();
+        requests = allRequests.filter(r => String(r.client_id) === String(clientId));
+      }
+      
       console.log(`[CHECKPOINT] getClientRequests(${clientId}): found ${requests.length} requests`);
-      return requests;
+      return requests || [];
     } catch (err) {
       console.log('[CHECKPOINT] getClientRequests error:', err.message);
       return [];
@@ -594,10 +609,21 @@ class DbService {
       const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
       const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
       
-      // Get all service requests for this client - try both ObjectId and string formats
-      let clientRequests = await ServiceRequest.find({ client_id: clientId }).lean();
-      if (clientRequests.length === 0 && mongoose.Types.ObjectId.isValid(clientId)) {
-        clientRequests = await ServiceRequest.find({ client_id: mongoose.Types.ObjectId(clientId) }).lean();
+      // Get all service requests for this client - try multiple formats
+      let clientRequests = [];
+      
+      if (mongoose.Types.ObjectId.isValid(clientId)) {
+        const objId = new mongoose.Types.ObjectId(clientId);
+        clientRequests = await ServiceRequest.find({ client_id: objId }).lean();
+      }
+      
+      if (clientRequests.length === 0) {
+        clientRequests = await ServiceRequest.find({ client_id: clientId }).lean();
+      }
+      
+      if (clientRequests.length === 0) {
+        const allRequests = await ServiceRequest.find({}).lean();
+        clientRequests = allRequests.filter(r => String(r.client_id) === String(clientId));
       }
       
       const requestIds = clientRequests.map(r => r._id);
@@ -605,7 +631,7 @@ class DbService {
       // Get quotes for those requests
       const quotes = await Quote.find({ request_id: { $in: requestIds } }).lean();
       console.log(`[CHECKPOINT] getClientQuotes(${clientId}): found ${clientRequests.length} requests and ${quotes.length} quotes`);
-      return quotes;
+      return quotes || [];
     } catch (err) {
       console.log('[CHECKPOINT] getClientQuotes error:', err.message);
       return [];
