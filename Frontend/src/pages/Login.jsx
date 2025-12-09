@@ -14,11 +14,12 @@ export default function Login({ onLogin }) {
     try {
       const res = await loginUser(username, password)
       if (res.success && res.token) {
-        // Extract user info from JWT or use returned data
+        // Extract user info from response
         onLogin({ 
           role: res.role, 
           client_id: res.client_id,
           username: res.username,
+          first_name: res.first_name,
           token: res.token
         })
         setUsername('')
@@ -64,11 +65,6 @@ export default function Login({ onLogin }) {
       <p style={{ marginTop: '20px' }}>
         Don't have an account? <a href="#register">Register here</a>
       </p>
-      <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
-        <h4>Demo Accounts:</h4>
-        <p><strong>Client:</strong> test@test.com / password123</p>
-        <p><strong>Admin:</strong> anna@homecleaning.com / admin123</p>
-      </div>
     </section>
   )
 }

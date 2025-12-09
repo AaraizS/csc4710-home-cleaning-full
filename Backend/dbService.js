@@ -102,13 +102,26 @@ class DbService {
         return { success: false, error: 'Invalid password' };
       }
 
+      // Get client info if it's a client user
+      let first_name = '';
+      if (user.role === 'CLIENT' && user.client_id) {
+        const Client = mongoose.model('Client', ClientSchema, 'clients');
+        const clientInfo = await Client.findById(user.client_id);
+        if (clientInfo) {
+          first_name = clientInfo.first_name;
+        }
+      } else if (user.role === 'ADMIN') {
+        first_name = 'Anna';
+      }
+
       // Generate JWT token valid for 24 hours
       const token = jwt.sign(
         { 
           userId: user._id, 
           username: user.username, 
           role: user.role, 
-          client_id: user.client_id 
+          client_id: user.client_id,
+          first_name: first_name
         },
         JWT_SECRET,
         { expiresIn: '24h' }
@@ -119,7 +132,8 @@ class DbService {
         token,
         role: user.role,
         client_id: user.client_id,
-        username: user.username
+        username: user.username,
+        first_name: first_name
       };
     } catch (err) {
       console.log('[CHECKPOINT] loginUser error:', err.message);

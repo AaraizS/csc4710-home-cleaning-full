@@ -38,6 +38,7 @@ export default function App(){
             username: payload.username,
             role: payload.role,
             client_id: payload.client_id,
+            first_name: payload.first_name,
             token
           })
           setIsAdmin(payload.role === 'ADMIN')
