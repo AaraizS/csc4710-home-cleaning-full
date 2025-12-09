@@ -54,7 +54,8 @@ const QuoteSchema = new mongoose.Schema({
   time_window_start: Date,
   time_window_end: Date,
   note: String,
-  status: { type: String, enum: ['PENDING', 'ACCEPTED'], default: 'PENDING' },
+  status: { type: String, enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'RENEGOTIATING'], default: 'PENDING' },
+  client_note: String,
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }
 });
@@ -573,7 +574,13 @@ class DbService {
   async getClientRequests(clientId) {
     try {
       const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
-      const requests = await ServiceRequest.find({ client_id: clientId }).lean();
+      // Try matching as ObjectId or as string
+      let requests = await ServiceRequest.find({ client_id: clientId }).lean();
+      if (requests.length === 0 && mongoose.Types.ObjectId.isValid(clientId)) {
+        // Try as ObjectId
+        requests = await ServiceRequest.find({ client_id: mongoose.Types.ObjectId(clientId) }).lean();
+      }
+      console.log(`[CHECKPOINT] getClientRequests(${clientId}): found ${requests.length} requests`);
       return requests;
     } catch (err) {
       console.log('[CHECKPOINT] getClientRequests error:', err.message);
@@ -587,16 +594,82 @@ class DbService {
       const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
       const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
       
-      // Get all service requests for this client
-      const clientRequests = await ServiceRequest.find({ client_id: clientId }).lean();
+      // Get all service requests for this client - try both ObjectId and string formats
+      let clientRequests = await ServiceRequest.find({ client_id: clientId }).lean();
+      if (clientRequests.length === 0 && mongoose.Types.ObjectId.isValid(clientId)) {
+        clientRequests = await ServiceRequest.find({ client_id: mongoose.Types.ObjectId(clientId) }).lean();
+      }
+      
       const requestIds = clientRequests.map(r => r._id);
       
       // Get quotes for those requests
       const quotes = await Quote.find({ request_id: { $in: requestIds } }).lean();
+      console.log(`[CHECKPOINT] getClientQuotes(${clientId}): found ${clientRequests.length} requests and ${quotes.length} quotes`);
       return quotes;
     } catch (err) {
       console.log('[CHECKPOINT] getClientQuotes error:', err.message);
       return [];
+    }
+  }
+
+  // Update quote with renegotiation note
+  async renegotiateQuote(quoteId, note) {
+    try {
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      const quote = await Quote.findByIdAndUpdate(
+        quoteId,
+        { 
+          client_note: note,
+          status: 'RENEGOTIATING',
+          updated_at: new Date()
+        },
+        { new: true }
+      );
+      console.log(`[CHECKPOINT] renegotiateQuote(${quoteId}): updated`);
+      return quote;
+    } catch (err) {
+      console.log('[CHECKPOINT] renegotiateQuote error:', err.message);
+      return null;
+    }
+  }
+
+  // Accept a quote
+  async acceptQuote(quoteId) {
+    try {
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      const quote = await Quote.findByIdAndUpdate(
+        quoteId,
+        { 
+          status: 'ACCEPTED',
+          updated_at: new Date()
+        },
+        { new: true }
+      );
+      console.log(`[CHECKPOINT] acceptQuote(${quoteId}): accepted`);
+      return quote;
+    } catch (err) {
+      console.log('[CHECKPOINT] acceptQuote error:', err.message);
+      return null;
+    }
+  }
+
+  // Reject a quote
+  async rejectQuote(quoteId) {
+    try {
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      const quote = await Quote.findByIdAndUpdate(
+        quoteId,
+        { 
+          status: 'REJECTED',
+          updated_at: new Date()
+        },
+        { new: true }
+      );
+      console.log(`[CHECKPOINT] rejectQuote(${quoteId}): rejected`);
+      return quote;
+    } catch (err) {
+      console.log('[CHECKPOINT] rejectQuote error:', err.message);
+      return null;
     }
   }
 

@@ -481,6 +481,59 @@ app.get('/quotes/client/:clientId', async (req, res) => {
   }
 });
 
+// CLIENT: Renegotiate a quote
+app.post('/quotes/:quoteId/renegotiate', async (req, res) => {
+  try {
+    const { note } = req.body;
+    if (!note) {
+      return res.status(400).json({ success: false, error: 'Note is required' });
+    }
+    
+    const dbService = await getDbService();
+    const quote = await dbService.renegotiateQuote?.(req.params.quoteId, note);
+    
+    if (quote) {
+      res.json({ success: true, data: quote, message: 'Renegotiation submitted to Anna' });
+    } else {
+      res.status(404).json({ success: false, error: 'Quote not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// CLIENT: Accept a quote
+app.post('/quotes/:quoteId/accept', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const quote = await dbService.acceptQuote?.(req.params.quoteId);
+    
+    if (quote) {
+      res.json({ success: true, data: quote, message: 'Quote accepted' });
+    } else {
+      res.status(404).json({ success: false, error: 'Quote not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// CLIENT: Reject a quote
+app.post('/quotes/:quoteId/reject', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const quote = await dbService.rejectQuote?.(req.params.quoteId);
+    
+    if (quote) {
+      res.json({ success: true, data: quote, message: 'Quote rejected' });
+    } else {
+      res.status(404).json({ success: false, error: 'Quote not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.use((req, res) => {
   console.log(`[CHECKPOINT] 404 - No route matched for ${req.method} ${req.path}`);
   console.log('[CHECKPOINT] Available routes should include: GET /, /health, /ready, /health/live, /health/detailed, /health/startup');

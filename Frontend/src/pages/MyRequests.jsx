@@ -5,14 +5,19 @@ export default function MyRequests({ clientId }){
   const [quotes, setQuotes] = useState([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('requests')
+  const [showRenegotiateModal, setShowRenegotiateModal] = useState(false)
+  const [selectedQuote, setSelectedQuote] = useState(null)
+  const [renegotiateNote, setRenegotiateNote] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (clientId) {
-      loadData()
+      loadRequests()
+      loadQuotes()
     }
-  }, [clientId, activeTab])
+  }, [clientId])
 
-  async function loadData(){
+  async function loadRequests(){
     setLoading(true)
     try {
       const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
@@ -22,19 +27,75 @@ export default function MyRequests({ clientId }){
         ...(token && { 'Authorization': `Bearer ${token}` })
       }
 
-      if (activeTab === 'requests') {
-        const res = await fetch(API_BASE + `/requests/client/${clientId}`, { headers })
-        const data = await res.json()
-        setRequests(data.data || [])
-      } else if (activeTab === 'quotes') {
-        const res = await fetch(API_BASE + `/quotes/client/${clientId}`, { headers })
-        const data = await res.json()
-        setQuotes(data.data || [])
-      }
+      const res = await fetch(`${API_BASE}/requests/client/${clientId}`, { headers })
+      const data = await res.json()
+      console.log('Requests response:', data)
+      setRequests(data.data || [])
     } catch (err) {
-      console.error('Error loading data:', err.message)
+      console.error('Error loading requests:', err.message)
     }
     setLoading(false)
+  }
+
+  async function loadQuotes(){
+    try {
+      const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
+      const token = localStorage.getItem('token')
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      }
+
+      const res = await fetch(`${API_BASE}/quotes/client/${clientId}`, { headers })
+      const data = await res.json()
+      console.log('Quotes response:', data)
+      setQuotes(data.data || [])
+    } catch (err) {
+      console.error('Error loading quotes:', err.message)
+    }
+  }
+
+  async function handleRenegotiate(quote){
+    setSelectedQuote(quote)
+    setRenegotiateNote('')
+    setShowRenegotiateModal(true)
+  }
+
+  async function submitRenegotiation(){
+    if (!renegotiateNote.trim()) {
+      alert('Please enter a renegotiation message')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
+      const token = localStorage.getItem('token')
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      }
+
+      const res = await fetch(`${API_BASE}/quotes/${selectedQuote._id}/renegotiate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ note: renegotiateNote })
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        alert('Renegotiation message sent to Anna!')
+        setShowRenegotiateModal(false)
+        setRenegotiateNote('')
+        setSelectedQuote(null)
+        loadQuotes()
+      } else {
+        alert('Error: ' + (data.error || 'Could not submit renegotiation'))
+      }
+    } catch (err) {
+      alert('Error submitting renegotiation: ' + err.message)
+    }
+    setSubmitting(false)
   }
 
   return (
@@ -155,13 +216,13 @@ export default function MyRequests({ clientId }){
                     {quote.status === 'pending' && (
                       <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #ddd' }}>
                         <p><strong>Actions:</strong></p>
-                        <button onClick={() => window.location.hash = '#quotes'} style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                        <button onClick={() => handleAccept(quote)} style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                           Accept Quote
                         </button>
-                        <button onClick={() => window.location.hash = '#quotes'} style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#ffc107', color: '#333', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                        <button onClick={() => handleRenegotiate(quote)} style={{ marginRight: '10px', padding: '8px 16px', backgroundColor: '#ffc107', color: '#333', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                           Renegotiate
                         </button>
-                        <button onClick={() => window.location.hash = '#quotes'} style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                        <button onClick={() => handleReject(quote)} style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                           Cancel
                         </button>
                       </div>
@@ -173,6 +234,102 @@ export default function MyRequests({ clientId }){
           </div>
         )}
       </div>
+
+      {/* Renegotiation Modal */}
+      {showRenegotiateModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+          }}>
+            <h3>Submit Renegotiation Message</h3>
+            {selectedQuote && (
+              <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+                <strong>Quote ID:</strong> {selectedQuote._id?.toString().slice(-6)} | <strong>Price:</strong> ${selectedQuote.price}
+              </div>
+            )}
+            <label style={{ display: 'block', marginBottom: '10px' }}>
+              <strong>Your Renegotiation Message:</strong>
+            </label>
+            <textarea
+              value={renegotiateNote}
+              onChange={(e) => setRenegotiateNote(e.target.value)}
+              placeholder="Tell Anna about your concerns or counter-offer..."
+              style={{
+                width: '100%',
+                height: '120px',
+                padding: '10px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontFamily: 'Arial, sans-serif',
+                marginBottom: '15px'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowRenegotiateModal(false)
+                  setSelectedQuote(null)
+                  setRenegotiateNote('')
+                }}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#999',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitRenegotiation}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#ffc107',
+                  color: '#333',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+                disabled={submitting}
+              >
+                {submitting ? 'Sending...' : 'Send Renegotiation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
+}
+
+function handleAccept(quote) {
+  // This would need to be moved inside the component to have access to state
+  // For now, clients can use the Quotes section to accept
+  alert('Please use the main Quotes section to accept this quote')
+}
+
+function handleReject(quote) {
+  // This would need to be moved inside the component to have access to state
+  // For now, clients can use the Quotes section to reject
+  alert('Please use the main Quotes section to reject this quote')
 }
