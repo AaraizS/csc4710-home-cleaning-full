@@ -4,11 +4,16 @@
 
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 dotenv.config();
 
 let instance = null;
 
 console.log("[CHECKPOINT] DbService initializing with MongoDB");
+
+// JWT Secret Key
+const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key_change_in_production";
 
 // Define MongoDB Schemas
 const ClientSchema = new mongoose.Schema({
@@ -82,18 +87,39 @@ class DbService {
     try {
       console.log('[CHECKPOINT] loginUser called');
       const UserAccount = mongoose.model('UserAccount', UserAccountSchema, 'user_accounts');
-      const user = await UserAccount.findOne({ username, password });
+      const user = await UserAccount.findOne({ username });
 
-      if (!user) return { success: false };
+      if (!user) return { success: false, error: 'User not found' };
+
+      // Compare provided password with stored password (plain for now, upgrade to bcrypt later)
+      const passwordMatch = user.password === password || await bcrypt.compare(password, user.password);
+      
+      if (!passwordMatch) {
+        return { success: false, error: 'Invalid password' };
+      }
+
+      // Generate JWT token valid for 24 hours
+      const token = jwt.sign(
+        { 
+          userId: user._id, 
+          username: user.username, 
+          role: user.role, 
+          client_id: user.client_id 
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
 
       return {
         success: true,
+        token,
         role: user.role,
-        client_id: user.client_id
+        client_id: user.client_id,
+        username: user.username
       };
     } catch (err) {
       console.log('[CHECKPOINT] loginUser error:', err.message);
-      return { success: false };
+      return { success: false, error: err.message };
     }
   }
 
@@ -117,10 +143,11 @@ class DbService {
         cc_token
       });
 
-      // Create user account
+      // Create user account with hashed password
+      const hashedPassword = await bcrypt.hash(password, 10);
       await UserAccount.create({
         username: email,
-        password,
+        password: hashedPassword,
         role: 'CLIENT',
         client_id: client._id
       });
@@ -128,7 +155,7 @@ class DbService {
       return { success: true, client_id: client._id };
     } catch (err) {
       console.log('[CHECKPOINT] registerClient error:', err.message);
-      return { success: false };
+      return { success: false, error: err.message };
     }
   }
 
@@ -491,6 +518,17 @@ class DbService {
     } catch (err) {
       console.log('[CHECKPOINT] enableClaudeHaikuForAllClients error:', err.message);
       return { success: false };
+    }
+  }
+
+  // Verify JWT token
+  verifyToken(token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      return { success: true, decoded };
+    } catch (err) {
+      console.log('[CHECKPOINT] verifyToken error:', err.message);
+      return { success: false, error: err.message };
     }
   }
 

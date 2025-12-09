@@ -1,5 +1,6 @@
 // Frontend Application - Home Cleaning Service Management System
 import React, { useState, useEffect } from 'react'
+import { logout } from './api'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Request from './pages/Request'
@@ -22,6 +23,30 @@ export default function App(){
   const [user, setUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
 
+  // Check for existing JWT token on mount
+  useEffect(()=>{
+    const token = localStorage.getItem('token')
+    if (token) {
+      // Decode JWT to get user info (using simple split, no external library)
+      try {
+        const parts = token.split('.')
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]))
+          setUser({
+            username: payload.username,
+            role: payload.role,
+            client_id: payload.client_id,
+            token
+          })
+          setIsAdmin(payload.role === 'ADMIN')
+        }
+      } catch (err) {
+        console.log('Token decode error:', err)
+        localStorage.removeItem('token')
+      }
+    }
+  },[])
+
   useEffect(()=>{
     function onHash(){
       const h = window.location.hash.replace('#','')
@@ -40,6 +65,7 @@ export default function App(){
   }
 
   function handleLogout() {
+    logout()
     setUser(null)
     setIsAdmin(false)
     setPage(PAGES.home)

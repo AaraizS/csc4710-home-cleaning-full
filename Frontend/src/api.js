@@ -1,21 +1,41 @@
 const API_BASE = 'https://csc4710-home-cleaning-api.vercel.app'
 
+function getAuthHeaders(){
+  const token = localStorage.getItem('token')
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` })
+  }
+}
+
 async function post(path, body){
   const res = await fetch(API_BASE + path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(),
     body: JSON.stringify(body)
   })
   return res.json()
 }
 
 async function get(path){
-  const res = await fetch(API_BASE + path)
+  const res = await fetch(API_BASE + path, {
+    headers: getAuthHeaders()
+  })
   return res.json()
 }
 
 // Auth
-export async function loginUser(username, password){ return post('/auth/login', { username, password }) }
+export async function loginUser(username, password){ 
+  const res = await post('/auth/login', { username, password })
+  if (res.success && res.token) {
+    localStorage.setItem('token', res.token)
+  }
+  return res
+}
+
+export function logout(){
+  localStorage.removeItem('token')
+}
 
 // Client functions
 export async function registerClient(data){ return post('/clients/register', data) }

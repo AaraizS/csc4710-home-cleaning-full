@@ -373,7 +373,7 @@ app.post('/t1', async (req, res) => {
 // SEED ENDPOINT: Create admin account
 app.post('/seed/create-admin', async (req, res) => {
   try {
-    const dbService = await getDbService();
+    const bcrypt = require('bcrypt');
     const { email, password, name } = req.body;
     
     if (!email || !password) {
@@ -393,10 +393,13 @@ app.post('/seed/create-admin', async (req, res) => {
       cc_last4: '0000'
     });
 
+    // Hash password before storing
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // Create user account with ADMIN role
     const userAccount = await UserAccount.create({
       username: email,
-      password: password,
+      password: hashedPassword,
       client_id: client._id,
       role: 'ADMIN'
     });

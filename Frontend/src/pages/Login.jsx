@@ -13,12 +13,18 @@ export default function Login({ onLogin }) {
     setError('')
     try {
       const res = await loginUser(username, password)
-      if (res.success) {
-        onLogin({ role: res.role, client_id: res.client_id })
+      if (res.success && res.token) {
+        // Extract user info from JWT or use returned data
+        onLogin({ 
+          role: res.role, 
+          client_id: res.client_id,
+          username: res.username,
+          token: res.token
+        })
         setUsername('')
         setPassword('')
       } else {
-        setError('Invalid username or password')
+        setError(res.error || 'Invalid username or password')
       }
     } catch (err) {
       setError('Login failed: ' + err.message)
