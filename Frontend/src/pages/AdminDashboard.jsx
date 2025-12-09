@@ -63,7 +63,8 @@ export default function AdminDashboard(){
       } else if (activeTab === TABS.orders) {
         const res = await fetch(API_BASE + '/orders/all', { headers })
         const data = await res.json()
-        setOrders(data.data || [])
+        // Filter to show only ACCEPTED orders, not COMPLETED ones
+        setOrders((data.data || []).filter(o => o.status === 'ACCEPTED'))
       } else if (activeTab === TABS.bills) {
         const res = await fetch(API_BASE + '/bills/all', { headers })
         const data = await res.json()

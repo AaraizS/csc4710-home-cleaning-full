@@ -799,6 +799,8 @@ class DbService {
   async createBill(orderId, amount, note) {
     try {
       const Bill = mongoose.model('Bill', BillSchema, 'bills');
+      const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+      
       const bill = await Bill.create({
         order_id: new mongoose.Types.ObjectId(orderId),
         amount,
@@ -806,6 +808,10 @@ class DbService {
         status: 'UNPAID',
         due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
       });
+      
+      // Mark the order as COMPLETED
+      await ServiceOrder.findByIdAndUpdate(orderId, { status: 'COMPLETED', completed_at: new Date() });
+      
       console.log('[CHECKPOINT] Bill created:', bill._id);
       return { success: true, bill_id: bill._id };
     } catch (err) {
