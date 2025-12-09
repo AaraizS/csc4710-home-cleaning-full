@@ -459,6 +459,28 @@ app.get('/bills/all', async (req, res) => {
   }
 });
 
+// CLIENT: Get client's own requests
+app.get('/requests/client/:clientId', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const requests = await dbService.getClientRequests?.(req.params.clientId) || [];
+    res.json({ success: true, data: requests });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// CLIENT: Get client's own quotes
+app.get('/quotes/client/:clientId', async (req, res) => {
+  try {
+    const dbService = await getDbService();
+    const quotes = await dbService.getClientQuotes?.(req.params.clientId) || [];
+    res.json({ success: true, data: quotes });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.use((req, res) => {
   console.log(`[CHECKPOINT] 404 - No route matched for ${req.method} ${req.path}`);
   console.log('[CHECKPOINT] Available routes should include: GET /, /health, /ready, /health/live, /health/detailed, /health/startup');

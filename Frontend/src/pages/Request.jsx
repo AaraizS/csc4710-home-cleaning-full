@@ -1,13 +1,20 @@
 import React, { useState } from 'react'
 import { createRequest, insertT1 } from '../api'
 
-export default function Request(){
+export default function Request({ clientId }){
   const [out, setOut] = useState('')
   const [loading, setLoading] = useState(false)
   const [photoFiles, setPhotoFiles] = useState([])
   const [photoError, setPhotoError] = useState('')
 
   const MAX_PHOTOS = 5
+
+  // Get minimum datetime (current time + 1 hour in the future)
+  function getMinDateTime() {
+    const now = new Date()
+    now.setHours(now.getHours() + 1)
+    return now.toISOString().slice(0, 16)
+  }
 
   function handlePhotoChange(e) {
     const files = Array.from(e.target.files || [])
@@ -33,7 +40,7 @@ export default function Request(){
     const photoNames = photoFiles.map(file => file.name)
     
     const data = {
-      client_id: Number(f.get('client_id')),
+      client_id: clientId,
       service_address: f.get('service_address'),
       cleaning_type: f.get('cleaning_type'),
       num_rooms: Number(f.get('num_rooms')),
@@ -61,11 +68,10 @@ export default function Request(){
       <h2>Submit Service Request</h2>
       <button onClick={() => window.location.hash = '#home'} style={{ marginBottom: '15px', padding: '8px 16px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>← Back to Home</button>
       <form onSubmit={onSubmit}>
-        <label>Client ID: <input name="client_id" required /></label><br />
         <label>Service address: <input name="service_address" required /></label><br />
         <label>Cleaning type: <select name="cleaning_type"><option>basic</option><option>deep cleaning</option><option>move-out</option></select></label><br />
         <label>Number of rooms: <input name="num_rooms" type="number" min="1" defaultValue={1} required /></label><br />
-        <label>Preferred datetime: <input name="preferred_datetime" type="datetime-local" /></label><br />
+        <label>Preferred datetime: <input name="preferred_datetime" type="datetime-local" min={getMinDateTime()} /></label><br />
         <label>Proposed budget: <input name="proposed_budget" type="number" step="0.01" /></label><br />
         <label>Notes: <textarea name="notes"></textarea></label><br />
         <label>Upload Photos (max {MAX_PHOTOS}): <input type="file" multiple accept="image/*" onChange={handlePhotoChange} /></label><br />

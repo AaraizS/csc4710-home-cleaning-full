@@ -569,6 +569,37 @@ class DbService {
     }
   }
 
+  // Get client's own requests
+  async getClientRequests(clientId) {
+    try {
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      const requests = await ServiceRequest.find({ client_id: clientId }).lean();
+      return requests;
+    } catch (err) {
+      console.log('[CHECKPOINT] getClientRequests error:', err.message);
+      return [];
+    }
+  }
+
+  // Get client's own quotes
+  async getClientQuotes(clientId) {
+    try {
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      
+      // Get all service requests for this client
+      const clientRequests = await ServiceRequest.find({ client_id: clientId }).lean();
+      const requestIds = clientRequests.map(r => r._id);
+      
+      // Get quotes for those requests
+      const quotes = await Quote.find({ request_id: { $in: requestIds } }).lean();
+      return quotes;
+    } catch (err) {
+      console.log('[CHECKPOINT] getClientQuotes error:', err.message);
+      return [];
+    }
+  }
+
   // Verify JWT token
   verifyToken(token) {
     try {

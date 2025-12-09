@@ -6,6 +6,7 @@ import Register from './pages/Register'
 import Request from './pages/Request'
 import Quotes from './pages/Quotes'
 import Bills from './pages/Bills'
+import MyRequests from './pages/MyRequests'
 import AdminDashboard from './pages/AdminDashboard'
 
 const PAGES = {
@@ -15,6 +16,7 @@ const PAGES = {
   request: 'request',
   quotes: 'quotes',
   bills: 'bills',
+  myrequests: 'myrequests',
   dashboard: 'dashboard'
 }
 
@@ -92,6 +94,7 @@ export default function App(){
         <nav>
           <a href="#home">Home</a>
           {!isAdmin && <a href="#request">Submit Request</a>}
+          {!isAdmin && <a href="#myrequests">My Requests</a>}
           {!isAdmin && <a href="#quotes">Quotes</a>}
           {!isAdmin && <a href="#bills">Bills</a>}
           {isAdmin && <a href="#dashboard">Dashboard</a>}
@@ -108,6 +111,7 @@ export default function App(){
         )}
 
         {!isAdmin && page === PAGES.request && <Request />}
+        {!isAdmin && page === PAGES.myrequests && <MyRequests clientId={user.client_id} />}
         {!isAdmin && page === PAGES.quotes && <Quotes />}
         {!isAdmin && page === PAGES.bills && <Bills />}
         {isAdmin && page === PAGES.dashboard && <AdminDashboard />}

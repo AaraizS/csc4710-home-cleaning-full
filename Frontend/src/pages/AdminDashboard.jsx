@@ -108,21 +108,23 @@ export default function AdminDashboard(){
             <table style={{width: '100%', borderCollapse: 'collapse'}}>
               <thead>
                 <tr style={{backgroundColor: '#e9ecef'}}>
-                  <th style={{border: '1px solid #ddd', padding: '8px'}}>ID</th>
+                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Request ID</th>
                   <th style={{border: '1px solid #ddd', padding: '8px'}}>Client</th>
                   <th style={{border: '1px solid #ddd', padding: '8px'}}>Service</th>
                   <th style={{border: '1px solid #ddd', padding: '8px'}}>Address</th>
                   <th style={{border: '1px solid #ddd', padding: '8px'}}>Budget</th>
+                  <th style={{border: '1px solid #ddd', padding: '8px'}}>Preferred Date</th>
                 </tr>
               </thead>
               <tbody>
                 {requests.map((req, i) => (
                   <tr key={i}>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{req._id}</td>
+                    <td style={{border: '1px solid #ddd', padding: '8px'}}><strong>{req._id?.toString().slice(-6)}</strong></td>
                     <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.client_id}</td>
                     <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.cleaning_type}</td>
                     <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.service_address}</td>
                     <td style={{border: '1px solid #ddd', padding: '8px'}}>${req.proposed_budget || 'N/A'}</td>
+                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{req.preferred_datetime ? new Date(req.preferred_datetime).toLocaleDateString() : 'N/A'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -156,8 +158,8 @@ export default function AdminDashboard(){
               <tbody>
                 {quotes.map((quote, i) => (
                   <tr key={i}>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{quote._id}</td>
-                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{quote.request_id}</td>
+                    <td style={{border: '1px solid #ddd', padding: '8px'}}><strong>{quote._id?.toString().slice(-6)}</strong></td>
+                    <td style={{border: '1px solid #ddd', padding: '8px'}}>{quote.request_id?.toString().slice(-6)}</td>
                     <td style={{border: '1px solid #ddd', padding: '8px'}}>${quote.price}</td>
                     <td style={{border: '1px solid #ddd', padding: '8px'}}>{quote.status || 'Pending'}</td>
                     <td style={{border: '1px solid #ddd', padding: '8px'}}>{quote.timeline}</td>
