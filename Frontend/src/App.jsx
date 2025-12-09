@@ -110,9 +110,9 @@ export default function App(){
           </section>
         )}
 
-        {!isAdmin && page === PAGES.request && <Request />}
+        {!isAdmin && page === PAGES.request && <Request clientId={user.client_id} />}
         {!isAdmin && page === PAGES.myrequests && <MyRequests clientId={user.client_id} />}
-        {!isAdmin && page === PAGES.quotes && <Quotes />}
+        {!isAdmin && page === PAGES.quotes && <Quotes clientId={user.client_id} />}
         {!isAdmin && page === PAGES.bills && <Bills />}
         {isAdmin && page === PAGES.dashboard && <AdminDashboard />}
       </main>
