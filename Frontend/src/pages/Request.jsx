@@ -4,11 +4,34 @@ import { createRequest, insertT1 } from '../api'
 export default function Request(){
   const [out, setOut] = useState('')
   const [loading, setLoading] = useState(false)
+  const [photoFiles, setPhotoFiles] = useState([])
+  const [photoError, setPhotoError] = useState('')
+
+  const MAX_PHOTOS = 5
+
+  function handlePhotoChange(e) {
+    const files = Array.from(e.target.files || [])
+    if (files.length > MAX_PHOTOS) {
+      setPhotoError(`Maximum ${MAX_PHOTOS} photos allowed. You selected ${files.length}.`)
+      e.target.value = ''
+      return
+    }
+    setPhotoError('')
+    setPhotoFiles(files)
+  }
 
   async function onSubmit(e){
     e.preventDefault()
     const f = new FormData(e.target)
-    const photos = f.get('photos') ? f.get('photos').split('\n').map(s=>s.trim()).filter(Boolean) : []
+    
+    if (photoFiles.length > MAX_PHOTOS) {
+      setOut(JSON.stringify({ error: `Maximum ${MAX_PHOTOS} photos allowed` }, null, 2))
+      return
+    }
+
+    // Convert files to base64 or file names for storage
+    const photoNames = photoFiles.map(file => file.name)
+    
     const data = {
       client_id: Number(f.get('client_id')),
       service_address: f.get('service_address'),
@@ -17,7 +40,7 @@ export default function Request(){
       preferred_datetime: f.get('preferred_datetime') ? new Date(f.get('preferred_datetime')).toISOString() : null,
       proposed_budget: f.get('proposed_budget') ? Number(f.get('proposed_budget')) : null,
       notes: f.get('notes'),
-      photos
+      photos: photoNames
     }
     setLoading(true)
     try{
@@ -25,6 +48,10 @@ export default function Request(){
       // also save to Mongo t1 for demo
       await insertT1(data)
       setOut(JSON.stringify(res, null, 2))
+      setPhotoFiles([])
+      // Reset file input
+      const fileInput = e.target.querySelector('input[type="file"]')
+      if (fileInput) fileInput.value = ''
     }catch(err){ setOut(err.toString()) }
     setLoading(false)
   }
@@ -40,7 +67,9 @@ export default function Request(){
         <label>Preferred datetime: <input name="preferred_datetime" type="datetime-local" /></label><br />
         <label>Proposed budget: <input name="proposed_budget" type="number" step="0.01" /></label><br />
         <label>Notes: <textarea name="notes"></textarea></label><br />
-        <label>Photos (one URL per line): <textarea name="photos"></textarea></label><br />
+        <label>Upload Photos (max {MAX_PHOTOS}): <input type="file" multiple accept="image/*" onChange={handlePhotoChange} /></label><br />
+        {photoFiles.length > 0 && <p style={{color:'green'}}>Selected {photoFiles.length} photo(s)</p>}
+        {photoError && <p style={{color:'red'}}>{photoError}</p>}
         <button type="submit" disabled={loading}>{loading? 'Submitting...' : 'Submit Request'}</button>
       </form>
       <pre className="output">{out}</pre>
