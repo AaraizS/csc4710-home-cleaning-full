@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 
-export default function Bills(){
+export default function Bills({ clientId }){
   const [bills, setBills] = useState([])
   const [selectedBill, setSelectedBill] = useState(null)
   const [amount, setAmount] = useState('')
@@ -19,7 +19,6 @@ export default function Bills(){
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
-      const clientId = localStorage.getItem('clientId')
       
       if (!clientId) {
         setMessage('Error: Client ID not found. Please log in again.')
@@ -66,7 +65,6 @@ export default function Bills(){
 
     try {
       const token = localStorage.getItem('token')
-      const clientId = localStorage.getItem('clientId')
       const headers = {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` })
