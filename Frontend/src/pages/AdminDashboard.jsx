@@ -342,6 +342,7 @@ export default function AdminDashboard(){
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Order ID</th>
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Request ID</th>
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Status</th>
+                    <th style={{border: '1px solid #ddd', padding: '8px'}}>Agreed Price</th>
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Created</th>
                     <th style={{border: '1px solid #ddd', padding: '8px'}}>Action</th>
                   </tr>
@@ -352,6 +353,7 @@ export default function AdminDashboard(){
                       <td style={{border: '1px solid #ddd', padding: '8px'}}><strong>{order._id?.toString().slice(-6)}</strong></td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>{order.request_id?.toString().slice(-6)}</td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>{order.status || 'Active'}</td>
+                      <td style={{border: '1px solid #ddd', padding: '8px'}}>${order.agreed_price || 0}</td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>{order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'}</td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>
                         <button onClick={() => setSelectedOrder(order)} style={{padding: '4px 8px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '12px'}}>

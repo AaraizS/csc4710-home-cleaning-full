@@ -443,8 +443,21 @@ class DbService {
   async getAllOrders() {
     try {
       const ServiceOrder = mongoose.model('ServiceOrder', ServiceOrderSchema, 'service_orders');
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      
       const orders = await ServiceOrder.find().lean();
-      return orders;
+      
+      // Enrich orders with quote price
+      const enriched = [];
+      for (const order of orders) {
+        const quote = await Quote.findOne({ request_id: order.request_id }).lean();
+        enriched.push({
+          ...order,
+          agreed_price: quote?.price || 0
+        });
+      }
+      
+      return enriched;
     } catch (err) {
       console.log('[CHECKPOINT] getAllOrders error:', err.message);
       return [];
@@ -679,7 +692,7 @@ class DbService {
         order_id: new mongoose.Types.ObjectId(orderId),
         amount,
         note,
-        status: 'unpaid',
+        status: 'UNPAID',
         due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
       });
       console.log('[CHECKPOINT] Bill created:', bill._id);
