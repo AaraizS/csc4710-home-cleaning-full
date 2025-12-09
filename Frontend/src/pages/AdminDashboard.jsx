@@ -498,8 +498,8 @@ export default function AdminDashboard(){
                       <td style={{border: '1px solid #ddd', padding: '8px'}}><strong>{bill._id?.toString().slice(-6)}</strong></td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>${bill.amount}</td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>
-                        <span style={{padding: '2px 6px', backgroundColor: bill.status === 'paid' ? '#d4edda' : '#f8d7da', color: bill.status === 'paid' ? '#155724' : '#721c24', borderRadius: '3px'}}>
-                          {bill.status || 'Unpaid'}
+                        <span style={{padding: '2px 6px', backgroundColor: bill.status === 'PAID' ? '#d4edda' : bill.status === 'DISPUTED' ? '#fff3cd' : '#f8d7da', color: bill.status === 'PAID' ? '#155724' : bill.status === 'DISPUTED' ? '#856404' : '#721c24', borderRadius: '3px'}}>
+                          {bill.status || 'UNPAID'}
                         </span>
                       </td>
                       <td style={{border: '1px solid #ddd', padding: '8px'}}>{bill.created_at ? new Date(bill.created_at).toLocaleDateString() : 'N/A'}</td>
