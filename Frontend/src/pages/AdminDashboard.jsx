@@ -164,12 +164,11 @@ export default function AdminDashboard(){
         ...(token && { 'Authorization': `Bearer ${token}` })
       }
 
-      // Create a new quote for the same request with the updated terms
-      const res = await fetch(API_BASE + '/quotes/create', {
+      // Resubmit the renegotiating quote with counter-offer
+      const res = await fetch(API_BASE + `/quotes/${selectedRenegotiatingQuote._id}/resubmit`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          request_id: selectedRenegotiatingQuote.request_id,
           price: Number(renegotiatePrice),
           timeline: renegotiateTimeline,
           note: renegotiateNote

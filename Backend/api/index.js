@@ -483,6 +483,18 @@ app.post('/quotes/create', async (req, res) => {
   }
 });
 
+// ADMIN: Resubmit renegotiating quote (counter-offer)
+app.post('/quotes/:quoteId/resubmit', async (req, res) => {
+  try {
+    const { price, timeline, note } = req.body;
+    const dbService = await getDbService();
+    const result = await dbService.resubmitRenegotiatingQuote(req.params.quoteId, price, timeline, note);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ADMIN: Reject request
 app.post('/requests/:requestId/reject', async (req, res) => {
   try {

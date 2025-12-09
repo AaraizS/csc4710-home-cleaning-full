@@ -56,7 +56,7 @@ const QuoteSchema = new mongoose.Schema({
   time_window_start: Date,
   time_window_end: Date,
   note: String,
-  status: { type: String, enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'RENEGOTIATING'], default: 'PENDING' },
+  status: { type: String, enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'RENEGOTIATING', 'RENEGOTIATED'], default: 'PENDING' },
   client_note: String,
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now }
@@ -746,6 +746,38 @@ class DbService {
       return { success: true, quote_id: quote._id };
     } catch (err) {
       console.log('[CHECKPOINT] createQuote error:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Resubmit a renegotiating quote (counter-offer to client)
+  async resubmitRenegotiatingQuote(oldQuoteId, price, timeline, note) {
+    try {
+      const Quote = mongoose.model('Quote', QuoteSchema, 'quotes');
+      const ServiceRequest = mongoose.model('ServiceRequest', ServiceRequestSchema, 'service_requests');
+      
+      // Get the old quote to find request_id and client_id
+      const oldQuote = await Quote.findById(oldQuoteId).lean();
+      if (!oldQuote) return { success: false, error: 'Quote not found' };
+      if (oldQuote.status !== 'RENEGOTIATING') return { success: false, error: 'Quote is not in RENEGOTIATING status' };
+
+      // Create new quote with counter-offer
+      const newQuote = await Quote.create({
+        request_id: oldQuote.request_id,
+        client_id: oldQuote.client_id,
+        price,
+        timeline,
+        note,
+        status: 'PENDING'
+      });
+
+      // Mark old quote as renegotiated
+      await Quote.findByIdAndUpdate(oldQuoteId, { status: 'RENEGOTIATED' });
+
+      console.log('[CHECKPOINT] Renegotiating quote resubmitted:', newQuote._id);
+      return { success: true, quote_id: newQuote._id };
+    } catch (err) {
+      console.log('[CHECKPOINT] resubmitRenegotiatingQuote error:', err.message);
       return { success: false, error: err.message };
     }
   }
