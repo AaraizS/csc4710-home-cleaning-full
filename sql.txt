@@ -1,7 +1,6 @@
 -- sql.txt
 -- List of SQL statements for the Home Cleaning Service Management System
 -- Includes database/table creation statements and all main queries/analytics.
--- Adjust table/column names to match your actual MySQL schema (e.g., pluralization, snake_case vs camelCase).
 
 -- ========================================
 -- DATABASE & TABLE CREATION
